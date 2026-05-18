@@ -1,8 +1,29 @@
 {
   "name": "agent-fission",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Hanako plugin for letting the primary agent create a persistent standalone agent.",
-  "license": "Apache-2.0"
+  "description": "Hanako plugin for letting the primary agent create a persistent standalone agent with identity, ishiki, and optional avatar.",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "klarkxy"
+  },
+  "homepage": "https://github.com/liliMozi/OH-Plugins",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/liliMozi/OH-Plugins.git"
+  },
+  "keywords": [
+    "hanako-plugin",
+    "agent-management",
+    "fission",
+    "agent-split"
+  ],
+  "scripts": {
+    "test": "node tests/smoke.mjs",
+    "smoke": "node tests/smoke.mjs"
+  },
+  "engines": {
+    "hanako": ">=0.170.0"
+  }
 }

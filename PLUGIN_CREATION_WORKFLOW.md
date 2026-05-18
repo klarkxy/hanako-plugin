@@ -1,121 +1,122 @@
 # OpenHanako 插件创建流程说明
 
-这份文档不是重复官方 API 手册，而是把我在以下三类资料里确认过的信息整理成一份可直接执行的流程：
+这份文档不是官方 API 手册的复读机——它是我翻遍了以下三类资料后，亲手整理出来的可执行的办案手册：
 
 - OpenHanako 仓库里的官方文档与源码
 - 官方社区市场仓库 OH-Plugins
-- GitHub 上已经公开的第三方 Hanako / OpenHanako 插件仓库
+- GitHub 上已公开的第三方 Hanako / OpenHanako 插件仓库
 
-适用目标：后续在当前目录下继续开发社区插件时，先看这份文档，再决定插件结构和实现顺序。
+适用场景：后续在这个目录下开发社区插件时，先翻这份文档，再决定怎么搭结构、按什么顺序实现。
 
 ---
 
 ## 1. 先看哪些插件最值得参考
 
-### 本地源码中的高价值参考
+像侦探勘查现场一样，我找到了几份最有价值的参考样本。
 
-1. `openhanako/examples/plugins/sdk-showcase/`
+### 本地源码中的宝藏
 
-最适合当第一份模板。它同时演示了：
+**① `openhanako/examples/plugins/sdk-showcase/`**
+
+最适合当第一份入门模板。它一口气演示了：
 
 - `tools/` 静态工具
 - `index.js` 生命周期入口
 - `routes/` iframe 路由
 - `manifest.json` 中的 `page` / `widget`
-- `@hana/plugin-sdk` 和 `@hana/plugin-components` 的基本用法
+- `@hana/plugin-sdk` 和 `@hana/plugin-components` 的基础用法
 
-如果后面要做一个“有工具 + 有页面”的插件，优先照着它起步。
+后面如果想做一个"既有工具又有页面"的插件，优先照着它起步。
 
-2. `openhanako/plugins/image-gen/`
+**② `openhanako/plugins/image-gen/`**
 
-适合参考“复杂 full-access 插件”的运行方式。它展示了：
+适合研究"复杂 full-access 插件"的运作方式。它展示了：
 
 - 生命周期里如何初始化运行时对象
 - 如何通过 `bus.handle()` 暴露能力
 - 如何做后台任务、轮询和插件私有数据目录管理
-- 配置 schema 的实际使用方式
+- 配置 schema 的实际用法
 
-3. `openhanako/plugins/mcp/`
+**③ `openhanako/plugins/mcp/`**
 
-适合参考“最小生命周期插件”。它的重点不是 UI，而是：
+适合研究"最小生命周期插件"。它的重点不是 UI，而是：
 
 - 在 `onload()` 中创建运行时对象
-- 在卸载时清理资源
+- 卸载时清理资源
 - 内置插件特有的 `settingsTab`
 
-### 互联网上已公开、能直接参考的插件仓库
+### 互联网上公开可参考的插件仓库
 
-1. OH-Plugins 官方市场仓库
+**① OH-Plugins 官方市场仓库**
 
 仓库：`https://github.com/liliMozi/OH-Plugins`
 
-目前我确认到官方市场里至少已有一个公开插件条目：
+目前官方市场里至少有一个公开插件的源码躺在那：
+`hanako-hyperframes`
 
-- `hanako-hyperframes`
-
-它的源码在 OH-Plugins 仓库的 `official-plugins/hanako-hyperframes/` 下，适合参考：
+它在 OH-Plugins 仓库的 `official-plugins/hanako-hyperframes/` 下，适合参考：
 
 - 官方发布形态的社区插件长什么样
 - 如何做一个完整的 `page` 插件
 - 如何把外部 CLI 集成进 Hanako 插件
 - 如何把渲染结果以 `SessionFile` 形式交给 Hanako
 
-2. `acoolalien/hanako-todo-plugin`
+**② `acoolalien/hanako-todo-plugin`**
 
 仓库：`https://github.com/acoolalien/hanako-todo-plugin`
 
-这个插件很适合参考“共享状态 + widget + tools + routes”的组合：
+这个插件很适合研究"共享状态 + widget + tools + routes"的组合拳：
 
 - 右侧 widget 面板
 - CRUD 路由
 - AI 工具和 UI 操作共用一份数据
-- 目录结构清晰，适合照着抄骨架
+- 目录结构清晰，骨架可以直接抄
 
-3. `hyjump/hanako-bilibili-intake`
+**③ `hyjump/hanako-bilibili-intake`**
 
 仓库：`https://github.com/hyjump/hanako-bilibili-intake`
 
-这个插件适合参考“工具优先、外部运行时较重”的场景：
+适合研究"工具优先、外部运行时较重"的场景：
 
 - 主入口是 `tools/`
 - 有 `skills/` 帮 Agent 更好地选择工具
 - 通过 Python / Whisper 做外部处理
 - 配置项较多，适合参考 `manifest.json` 的 configuration 写法
 
-4. `Yuexiye/Openhanako-crystal-speech-emote`
+**④ `Yuexiye/Openhanako-crystal-speech-emote`**
 
 仓库：`https://github.com/Yuexiye/Openhanako-crystal-speech-emote`
 
-它适合参考“工具 + page + 资源文件”的组织方式：
+适合研究"工具 + page + 资源文件"的组织方式：
 
 - 多个工具
 - 插件页面
 - 数据目录和素材目录如何一起组织
 
-但要注意：它的 manifest 里写了 `contributes.tools`，而从 OpenHanako 当前源码看，静态工具实际还是靠 `tools/` 目录自动扫描加载，不能只依赖 manifest 枚举。
+> ⚠️ 注意：它的 manifest 里写了 `contributes.tools`，但从 OpenHanako 当前源码看，静态工具仍然靠 `tools/` 目录自动扫描加载，不能只依赖 manifest 枚举。
 
 ---
 
 ## 2. 从源码看，OpenHanako 插件到底怎么被加载
 
-下面这些不是“文档建议”，而是我直接从源码里确认的实际行为。
+下面这些不是"文档建议"，而是我亲手从源码里挖出来的实际行为——算是本案的第一手现场证据。
 
 ### 2.1 扫描入口
 
-宿主会扫描插件目录下的每个子目录。
+宿主（host）会扫描插件目录下的每个子目录。
 
-- `manifest.json` 可选
+- `manifest.json` **可选**
 - 没有 manifest 时，插件 id 默认取目录名
-- 如果有 `manifest.json`，则优先用 manifest 里的 `id`、`name`、`version`、`description`
+- 有 `manifest.json` 时，优先使用其中的 `id`、`name`、`version`、`description`
 
 这意味着：
 
-- 最简单的 tool-only 插件，甚至可以没有 manifest
-- 但只要你需要 `full-access`、页面、配置、版本信息，最好还是写 manifest
+- 最简单的 tool-only 插件，甚至可以没有 manifest 就上路
+- 但一旦你需要 `full-access`、页面、配置、版本信息，还是老实写上 manifest
 
 ### 2.2 实际加载顺序
 
-从 `core/plugin-manager.js` 看，插件的大体加载顺序是：
+从 `core/plugin-manager.js` 看，插件加载顺序大致是这样的：
 
 1. 创建 `PluginContext`
 2. 加载 `tools/`
@@ -130,13 +131,13 @@
    - `page`
    - `widget`
    - `settingsTab`
-8. 如果有 `index.js` 且激活条件满足，再执行生命周期 `onload()`
+8. 如果有 `index.js` 且激活条件满足，再执行 `onload()`
 
 结论：
 
-- 静态贡献是“目录驱动”的，不是“manifest 枚举驱动”的
-- `index.js` 不负责工具扫描，工具是先按目录加载的
-- 生命周期更像“运行时补充层”，不是插件的唯一入口
+- 静态贡献走的是"目录驱动"，不是"manifest 枚举驱动"
+- `index.js` **不**负责工具扫描——工具早在它之前就按目录加载好了
+- 生命周期更像是"运行时补充层"，不是插件的唯一入口
 
 ### 2.3 权限模型的真实含义
 
@@ -150,9 +151,9 @@
 }
 ```
 
-并且用户在 Hanako 设置里开启了“允许全权插件”，这个社区插件才会真正以 `full-access` 加载。
+并且在 Hanako 设置里开启了"允许全权插件"，这个社区插件才会真正以 `full-access` 加载。
 
-否则会出现这些结果：
+否则会出现下面这些"看起来像坏了"的症状：
 
 - `tools/` 可以正常工作
 - `routes/`、`extensions/`、`providers/` 不会按 full-access 生效
@@ -161,7 +162,7 @@
 
 ### 2.4 工具是怎么注册的
 
-`tools/*.js` 只要导出下面这些字段，宿主就会自动加载：
+`tools/*.js` 只要导出下面这些字段，宿主就会自动收录：
 
 - `name`
 - `description`
@@ -191,7 +192,7 @@
 - `registerSessionFile`
 - `stageFile`
 
-另外，运行时上下文里还可能带：
+运行时上下文里还可能带上：
 
 - `sessionPath`
 - `serverId`
@@ -202,14 +203,14 @@
 - `credentialKind`
 - `executionBoundary`
 
-需要特别记住两点：
+需要特别注意两点：
 
-1. restricted 插件拿到的 `bus` 是裁剪过的，只能用一部分方法。
-2. 插件要把本地文件返回给 Hanako 时，应该优先用 `stageFile()`，不要自己返回 `file://` 或随便拼本地路径。
+1. restricted 插件拿到的 `bus` 是裁剪过的，只有部分方法能用。
+2. 插件要把本地文件返回给 Hanako 时，优先用 `stageFile()`——别自己返回 `file://` 或瞎拼本地路径。
 
 ### 2.6 routes 是怎么挂载的
 
-`routes/` 目录只在 `full-access` 下有意义。
+`routes/` 目录只在 `full-access` 下才有意义。
 
 每个路由文件会被挂到插件自己的 API 前缀下：
 
@@ -220,13 +221,13 @@
 - `pluginCtx`
 - `agentId`
 
-所以一个 page / widget 插件的典型做法是：
+所以一个 page / widget 插件的典型套路是：
 
 - manifest 声明 `page.route` 或 `widget.route`
 - `routes/*.js` 提供 iframe 页面或数据 API
 - iframe 页面里再加载自己的前端资源
 
-### 2.7 page / widget 能否成功注册，取决于三个条件
+### 2.7 page / widget 能不能成功注册，取决于三个条件
 
 缺一个都不行：
 
@@ -234,27 +235,29 @@
 2. 插件具备 `full-access`
 3. 插件目录里真的有 `routes/`
 
-也就是说，只写 manifest 还不够，宿主还会检查 `routes/` 目录是否存在。
+也就是说，光写 manifest 还不够——宿主还会去检查 `routes/` 目录是不是真实存在。
 
 ### 2.8 生命周期不是一定开机就跑
 
-如果有 `index.js`，并且没有写 `activationEvents`，当前实现会默认按 `onStartup` 处理。
+有 `index.js` 但没写 `activationEvents` 时，当前实现默认按 `onStartup` 处理。
 
-如果写了 `activationEvents`，就可以做按需激活，例如：
+写了 `activationEvents` 就可以做按需激活，例如：
 
 - `onStartup`
 - `onPageOpen`
 - `onWidgetOpen`
 - `onToolCall`
 - `onToolCall:name`
+- `onBusRequest`（预留）
+- `onBusRequest:type`（预留）
 
-这个机制很适合避免“插件一启动就把所有重资源都拉起来”。
+这个机制很适合避免"插件一启动就把所有重资源全都拉起来"的笨重做法。
 
 ---
 
 ## 3. 创建插件前，先选形态
 
-建议先问自己一句：这个插件到底是“给 Agent 加能力”，还是“给用户加界面”。
+开动之前先问自己一个问题：**这个插件到底是给 Agent 加能力，还是给用户加界面？**
 
 ### 方案 A：tool-only 插件
 
@@ -265,7 +268,7 @@
 - 不需要 HTTP route
 - 不需要生命周期常驻状态
 
-建议：优先从这个形态起步。
+建议：**优先从这个形态起步**，能省掉 80% 的初期复杂度。
 
 最小目录：
 
@@ -304,7 +307,7 @@ my-plugin/
 - 要接外部 CLI
 - 要跑后台任务
 - 要注册 bus handler
-- 要保存较复杂状态
+- 要保存较复杂的状态
 
 这种形态通常一开始就需要 `full-access`。
 
@@ -312,11 +315,11 @@ my-plugin/
 
 ## 4. 推荐的创建流程
 
-下面这套顺序，是我结合官方规则和源码后，认为最稳的做法。
+下面这套顺序，是我结合官方规则和源码后得出的最稳做法——每一步都踩在源码逻辑上。
 
 ### 第 1 步：先做 MVP，不要一上来就 full-access
 
-建议先回答这几个问题：
+先回答这几个问题：
 
 - 插件 id 是什么
 - Agent 最终要调用什么工具
@@ -324,7 +327,7 @@ my-plugin/
 - 工具输出是纯文本、结构化结果，还是文件
 - 有没有必须存在的页面
 
-如果这些问题里只有“工具输入输出”很明确，那就先做 restricted 的 tool-only MVP。
+如果这些问题里只有"工具输入输出"比较明确，那就先做 restricted 的 tool-only MVP。
 
 ### 第 2 步：先把目录搭出来
 
@@ -338,7 +341,7 @@ my-plugin/
     hello.js
 ```
 
-虽然 tool-only 插件理论上可以没有 manifest，但我还是建议从一开始就写上，后面扩展最省事。
+虽然 tool-only 插件理论上可以没有 manifest，但我还是建议从一开始就写上——后面扩展起来最省事。
 
 ### 第 3 步：写一个最小可调用工具
 
@@ -359,6 +362,21 @@ export async function execute(input, ctx) {
   return `Hello, ${input.name}!`;
 }
 ```
+
+> 新插件也可以使用 `@hana/plugin-runtime` 的 `defineTool()` 来获得类型提示和参数默认值，两种写法的效果完全一样：
+>
+> ```js
+> import { defineTool } from "@hana/plugin-runtime";
+>
+> const tool = defineTool({
+>   name: "hello",
+>   description: "Say hello",
+>   async execute(input, ctx) {
+>     return `Hello, ${input.name}!`;
+>   }
+> });
+> export const tool;
+> ```
 
 如果工具会生成文件，改成这种返回方式：
 
@@ -389,7 +407,13 @@ export async function execute(input, ctx) {
 
 ### 第 4 步：只有确实需要时，再补 full-access manifest
 
-如果插件开始需要页面、路由、生命周期或外部系统集成，再补 manifest：
+如果插件开始需要页面、路由、生命周期或外部系统集成，再补上 manifest。主要字段说明：
+
+- `minAppVersion`：建议设置，避免用户在用旧版本时出现诡异问题。
+- `ui.hostCapabilities`：声明 iframe 页面需要的宿主能力（`external.open` 打开外链、`clipboard.writeText` 剪贴板写入、`sessionFile.open` 打开文件），只有声明的能力才能在 iframe 中调用。
+- `depends.capabilities`：软依赖声明，告知宿主插件依赖哪些总线能力（如 `bridge:send`），缺失时不会阻止加载但会记录警告。
+
+示例：
 
 ```json
 {
@@ -398,7 +422,7 @@ export async function execute(input, ctx) {
   "name": "My Plugin",
   "version": "0.1.0",
   "description": "My OpenHanako plugin",
-  "minAppVersion": "0.158.0",
+  "minAppVersion": "0.170.0",
   "trust": "full-access",
   "activationEvents": ["onStartup"],
   "ui": {
@@ -409,6 +433,9 @@ export async function execute(input, ctx) {
       "title": "My Plugin",
       "route": "/page"
     }
+  },
+  "depends": {
+    "capabilities": ["bridge:send"]
   }
 }
 ```
@@ -422,7 +449,7 @@ export async function execute(input, ctx) {
 - 打包后的静态资源放 `assets/`
 - iframe 中通过 `@hana/plugin-sdk` 和宿主通信
 
-一个最小 route shell 的思路是：
+一个最小 route shell 的思路：
 
 ```js
 export default function registerRoutes(app, ctx) {
@@ -445,7 +472,27 @@ export default function registerRoutes(app, ctx) {
 - 要维护长连接、轮询、任务调度
 - 要动态注册工具
 
-最小生命周期骨架：
+> 新插件推荐使用 `@hana/plugin-runtime` 的 `definePlugin()`，它会自动适配 PluginManager 的版本差异：
+>
+> ```js
+> import { definePlugin } from "@hana/plugin-runtime";
+>
+> export default definePlugin({
+>   async onload(ctx) {
+>     ctx.log.info("plugin loaded");
+>
+>     this.register(() => {
+>       ctx.log.info("plugin cleaned up");
+>     });
+>   },
+>
+>   async onunload(ctx) {
+>     ctx.log.info("plugin unloaded");
+>   }
+> });
+> ```
+
+传统 class 形式也完全兼容（`definePlugin()` 和 class 二选一即可）：
 
 ```js
 export default class MyPlugin {
@@ -467,18 +514,39 @@ export default class MyPlugin {
 
 推荐验证顺序：
 
-1. 直接把插件文件夹拖到 Hanako 的设置 -> 插件页面
+1. 直接把插件文件夹拖到 Hanako 的设置 → 插件页面
 2. 检查插件状态是否成功加载
 3. 用 Agent 调工具，确认工具名、参数、返回值都对
-4. 如果有 UI，打开 page / widget 看是否成功渲染
-5. 只有这些都稳定后，再考虑 zip 打包
+4. 有 UI 的话，打开 page / widget 看是否成功渲染
+5. 这些都稳定了，再考虑 zip 打包
 
-如果后续改成 Agent 辅助开发，优先走 dev loop：
+如果后续改成了 Agent 辅助开发，优先走 dev loop——所有 dev 工具需在设置 → 插件 → 权限中开启「允许 Agent 插件开发工具」后才可见：
 
-- `plugin.dev.install`
-- `plugin.dev.reload`
-- `plugin.dev.invokeTool`
-- `plugin.dev.diagnostics`
+- `plugin.dev.install` — 从工作区复制源码并加载到 `plugins-dev/`
+- `plugin.dev.reload` — 修改源码后热重载
+- `plugin.dev.invokeTool` — smoke 测试单个工具
+- `plugin.dev.diagnostics` — 查看加载状态
+- `plugin.dev.disable` / `plugin.dev.enable` — 控制生命周期
+- `plugin.dev.reset` / `plugin.dev.uninstall` — 重置或移除
+- `plugin.dev.list_surfaces` / `plugin.dev.describe_surface` — UI 调试
+- `plugin.dev.run_scenario` — 运行自动化场景测试
+
+**Dev Scenarios**：可以在 manifest 中声明 `dev.scenarios` 来做自动化 smoke test，生产运行时会忽略：
+
+```json
+{
+  "dev": {
+    "scenarios": [{
+      "id": "hello-tool",
+      "steps": [{
+        "invokeTool": "hello",
+        "input": { "name": "Hana" },
+        "expectToolText": "hello Hana"
+      }]
+    }]
+  }
+}
+```
 
 不要把半成品直接塞进正式插件目录反复覆盖。
 
@@ -490,18 +558,43 @@ export default class MyPlugin {
 - 计算 `sha256`
 - 在 OH-Plugins 提交市场条目
 - 补 README、权限说明、兼容版本说明
+- 准备完整的市场条目——根级字段配一个示例就够了，完整条目还要包含 `versions[]` 数组，每个版本声明 `compatibility.minAppVersion` 和 `distribution`：
 
-在此之前，不必先做市场元数据。
+```yaml
+# OH-Plugins/plugins/<id>.yaml
+schemaVersion: 1
+id: my-plugin
+name: My Plugin
+publisher: your-name
+version: 1.0.0
+repository: https://github.com/...
+compatibility:
+  minAppVersion: 0.170.0
+distribution:
+  kind: release
+  packageUrl: https://github.com/.../releases/download/v1.0.0/plugin.zip
+  sha256: ...
+versions:
+  - version: 1.0.0
+    compatibility:
+      minAppVersion: 0.170.0
+    distribution:
+      kind: release
+      packageUrl: https://github.com/.../my-plugin-v1.0.0.zip
+      sha256: ...
+```
+
+在此之前，不必折腾市场元数据。
 
 ---
 
 ## 5. 我建议你后续优先采用的起手模板
 
-如果当前要在这个目录里继续做新插件，我建议直接选下面二选一。
+如果现在要在这个目录里继续做新插件，二选一就行。
 
 ### 起手模板 1：最稳妥的工具插件模板
 
-适合绝大多数“先做能用”的场景。
+适合绝大多数"先做能用"的场景。
 
 ```text
 hanako-plugin/
@@ -514,12 +607,12 @@ hanako-plugin/
 建议：
 
 - 先把核心能力都收敛到一个工具里
-- 工具跑顺以后，再拆更多工具
-- 如果后面才发现需要 UI，再加 `routes/` 和 `ui/`
+- 工具跑顺了，再拆更多工具
+- 后面才发现需要 UI？再加 `routes/` 和 `ui/`
 
 ### 起手模板 2：直接做 page 型插件
 
-适合你已经非常确定“必须有界面”。
+适合你已经非常确定"必须有界面"的情况。
 
 ```text
 hanako-plugin/
@@ -537,7 +630,7 @@ hanako-plugin/
     panel.css
 ```
 
-这时最应该参考的不是官方文档，而是：
+这时最该参考的不是官方文档，而是：
 
 - `openhanako/examples/plugins/sdk-showcase/`
 - `OH-Plugins/official-plugins/hanako-hyperframes/`
@@ -546,60 +639,55 @@ hanako-plugin/
 
 ## 6. 高概率踩坑点
 
-1. 以为 manifest 里写了 `contributes.tools` 就够了
+这 7 个坑，我在源码和实践中都亲眼撞见过——提前打上标签，别重蹈覆辙。
 
-当前源码里，静态工具仍然是按 `tools/` 目录扫描，不是按 manifest 枚举扫描。
+1. **以为 manifest 里写了 `contributes.tools` 就够了**  
+   当前源码里，静态工具仍然按 `tools/` 目录扫描，不是按 manifest 枚举。
 
-2. page / widget 只写 manifest，不建 `routes/`
+2. **page / widget 只写 manifest，不建 `routes/`**  
+   宿主不会注册 UI 入口，页面就出不来。
 
-这样宿主不会正常注册 UI 入口。
+3. **社区插件声明了 `full-access`，但忘了在 Hanako 里开启全权插件**  
+   插件会卡在受限状态，很多能力看起来"像坏了"。
 
-3. 社区插件声明了 `full-access`，但忘了在 Hanako 里开启全权插件
+4. **工具产出本地文件时直接返回路径**  
+   正确做法：先 `stageFile()`，把文件变成 `SessionFile`。
 
-这会导致插件处于受限状态，很多能力看起来“像坏了”。
+5. **在并发场景里假设 session 是全局唯一的**  
+   和 session 相关的动作要明确依赖 `sessionPath`，不要假设"当前焦点 session"就是正在运行的那个。
 
-4. 工具产出本地文件时直接返回路径
+6. **把内置插件特性当成社区插件特性**  
+   例如 `settingsTab` 只对内置插件有效——社区插件声明了也会被忽略。
 
-正确做法是先 `stageFile()`，把文件变成 `SessionFile`。
-
-5. 在并发场景里假设 session 是全局唯一
-
-和 session 相关的动作要明确依赖 `sessionPath`，不要假设“当前焦点 session”就是正在运行的 session。
-
-6. 把内置插件特性当成社区插件特性
-
-例如 `settingsTab` 只对内置插件有效，社区插件声明了也会被忽略。
-
-7. 一开始就上复杂生命周期
-
-如果功能本质上只是一个工具，先写 `tools/`，不要急着加 `index.js`。
+7. **一开始就上复杂生命周期**  
+   如果功能本质上只是一个工具，先写 `tools/`，别急着加 `index.js`。
 
 ---
 
 ## 7. 当前最推荐的参考顺序
 
-如果你后续要继续做插件，我建议按这个顺序看：
+后面要继续做插件的话，按这个顺序翻参考：
 
 1. 先看 `openhanako/examples/plugins/sdk-showcase/`
 2. 再看 `openhanako/core/plugin-manager.js`
-3. 然后按需求选一个公开插件：
-   - 要 widget：看 `acoolalien/hanako-todo-plugin`
-   - 要重工具链：看 `hyjump/hanako-bilibili-intake`
-   - 要 page + 资源 + 发行形态：看 `hanako-hyperframes`
+3. 然后按需求挑一个公开插件：
+   - 要 widget → 看 `acoolalien/hanako-todo-plugin`
+   - 要重工具链 → 看 `hyjump/hanako-bilibili-intake`
+   - 要 page + 资源 + 发行形态 → 看 `hanako-hyperframes`
 4. 最后再补看 `PLUGINS.md` 和 `PLUGIN_SDK.md`
 
 ---
 
 ## 8. 一句话版结论
 
-OpenHanako 当前的插件系统，更接近“目录约定优先 + manifest 只补权限和元信息”的设计。
+OpenHanako 当前的插件系统，本质是 **"目录约定优先，manifest 只补权限和元信息"** 的设计。
 
-真正高效的开发顺序不是先啃完整文档，而是：
+真正高效的开发顺序不是先啃完整文档，而是一步步来：
 
-1. 先确定插件形态
+1. 先定形态
 2. 先做最小工具
 3. 需要 UI 再加 routes / page / widget
 4. 需要常驻能力再加 index.js
 5. 最后再考虑打包和市场发布
 
-照这个顺序做，成本最低，和当前源码实现也最一致。
+照这个顺序走，成本最低，和当前源码实现也最一致。

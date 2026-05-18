@@ -320,7 +320,7 @@ async function fetchRemoteAvatarAsDataUrl(avatarUrl) {
   const response = await fetch(parsedUrl, {
     headers: {
       Accept: "image/png,image/jpeg,image/webp,*/*",
-      "User-Agent": "Hanako-Agent-Fission/0.1.0",
+      "User-Agent": "Hanako-Agent-Fission/1.0.0",
     },
     redirect: "follow",
   });

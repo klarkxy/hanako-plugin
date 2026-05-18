@@ -3,13 +3,13 @@ name: agent-fission
 description: Use the agent-fission_split_agent tool when the user explicitly wants a new persistent Hanako agent with its own identity, soul, and avatar.
 ---
 
-Use this skill only when the user wants a real standalone Hanako agent.
+Activate this skill only when the user wants a real standalone Hanako agent — one that lives on after the conversation ends.
 
-Do not use this tool for:
+Steer clear when the request is about:
 
-- temporary runtime delegation
-- isolated one-off subagent runs
-- background runs that should stay attached to the current agent
+- a temporary runtime sidekick
+- an isolated one-off subagent run
+- a background task that should stay tethered to the current agent
 
 Before calling the tool, prepare:
 
@@ -23,12 +23,12 @@ Before calling the tool, prepare:
 - optional avatarUrl: a reachable http/https png/jpg/webp image URL
 - optional avatarDataUrl: use this only when you already have the image bytes
 
-Important rules:
+Golden rules:
 
 - only the primary agent may create another persistent agent
-- the tool creates a normal Hanako agent, not a runtime subagent
-- default to contentMode=overlay unless the user explicitly wants fully custom identity/ishiki files
-- in overlay mode, keep identity and ishiki short and assistant-first; add only a thin personality layer on top of Hanako's defaults
-- do not write an overbuilt roleplay setting; this is still primarily an assistant
-- before choosing avatarUrl, search the web for a few fitting portraits or icon-style avatars and pick one that matches the requested tone
-- prefer simple headshots, portraits, or icon avatars that read clearly at small size
+- the tool spawns a normal Hanako agent, not a runtime subagent
+- default to `contentMode=overlay` unless the user explicitly wants fully custom files
+- in overlay mode, keep identity and ishiki short and assistant-first — a thin personality finish, not a full rewrite
+- don't overbuild a roleplay setting; this is still an assistant at heart
+- before picking an avatarUrl, search the web for a few fitting portraits or icon-style images and choose one that matches the tone
+- prefer simple headshots or icon avatars that read well at small sizes

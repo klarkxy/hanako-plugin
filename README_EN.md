@@ -1,17 +1,17 @@
 # Hanako Plugins
 
-Chinese: [README.md](README.md)
+[中文版 →](README.md)
 
-This repository is organized by plugin. Each plugin lives in its own top-level folder.
+Each plugin gets its own cozy top-level folder in this repo.
 
-Current plugins:
+Current residents:
 
-- [agent-fission](agent-fission/README.md): creates a persistent Hanako agent with its own identity, ishiki, and optional public-ishiki.
+- [agent-fission](agent-fission/README.md) — creates a persistent Hanako agent with its own identity, ishiki, and optional public-ishiki.
 
-Repository-level references:
+Repo-level references:
 
-- [PLUGIN_CREATION_WORKFLOW.md](PLUGIN_CREATION_WORKFLOW.md): implementation notes and workflow references for building Hanako plugins.
-- [scripts/update-marketplace.mjs](scripts/update-marketplace.mjs): one-click incremental sync into the local OpenHanako marketplace file.
+- [PLUGIN_CREATION_WORKFLOW.md](PLUGIN_CREATION_WORKFLOW.md): end-to-end plugin creation workflow and implementation notes.
+- [scripts/update-marketplace.mjs](scripts/update-marketplace.mjs): one-click incremental sync to the local OpenHanako marketplace file.
 - [scripts/release.mjs](scripts/release.mjs): plan, check, smoke, and sync helpers for debugging.
 
 Common commands:
@@ -21,11 +21,11 @@ Common commands:
 - `scripts/update-marketplace.cmd`
 - `node scripts/release.mjs plan`
 
-Local marketplace config:
+Local marketplace setup:
 
-- The script writes to `C:\Users\<you>\.hanako\plugin-marketplace\marketplace.json` by default, matching OpenHanako's local marketplace lookup.
-- Override the target file with `HANA_PLUGIN_MARKETPLACE_FILE`, or change the Hanako home directory with `HANA_HOME`.
-- Keep any local settings outside git; this file is only for your machine's marketplace index.
+- Writes to `C:\Users\<you>\.hanako\plugin-marketplace\marketplace.json` by default — the same path OpenHanako uses.
+- Change the target file with `HANA_PLUGIN_MARKETPLACE_FILE`, or point `HANA_HOME` to a different Hanako data directory.
+- This file stays out of git — it's just for your local debugging index.
 
 Example:
 
@@ -40,7 +40,7 @@ Example:
 
 Notes:
 
-- `update-marketplace` only syncs a local marketplace file; it does not use GitHub Releases.
-- It writes the current repo's plugin entries into the same local marketplace file that OpenHanako reads first.
-- If there is nothing new to publish, the script exits without changing the marketplace.
-- New plugins should be added as new top-level folders, each with its own `manifest.json`, `package.json`, `skills/`, `tools/`, and optional `tests/`.
+- `update-marketplace` syncs a local marketplace file only — no GitHub Releases involved.
+- It writes the repo's plugin entries into the marketplace.json that OpenHanako looks at, so the next refresh picks them up.
+- No new versions to publish? The script exits and doesn't touch a thing.
+- Adding a new plugin? Just drop a new top-level folder. Each plugin keeps its own `manifest.json`, `package.json`, `skills/`, `tools/`, and optionally `tests/`.
