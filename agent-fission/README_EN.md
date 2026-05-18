@@ -9,8 +9,8 @@ It lets the primary agent create a Hanako agent that sticks around — not a one
 | Capability | Description |
 |------------|-------------|
 | 🆕 Agent creation | Creates a brand-new persistent Hanako agent via the local API |
-| 🧬 Identity overlay | Preserves defaults + layers a thin `identity.md` |
-| 🧠 Ishiki overlay | Preserves defaults + layers a thin `ishiki.md` |
+| 🧬 Identity overlay | Preserves defaults + layers a custom `identity.md` |
+| 🧠 Ishiki overlay | Preserves defaults + layers a custom `ishiki.md` |
 | 🌐 Public-ishiki | Optionally writes `public-ishiki.md` |
 | 🖼️ Avatar | Downloads from URL or accepts a Data URL |
 | 🚫 Permission guard | Refuses to run when the caller isn't the primary agent |
@@ -34,9 +34,16 @@ Installed tool name:
 Recommended calling pattern:
 
 - prefer `contentMode=overlay`
-- keep `identity` and `ishiki` short and assistant-first — don't rewrite the whole files
-- the overlay sits on top of Hanako's built-in defaults, so the agent stays fundamentally a helper with a light personality layer
-- need an avatar? Have the primary agent search the web for a few fitting portraits or icon-style images, then pass the chosen URL through `avatarUrl`
+- keep `identity` and `ishiki` focused on what makes this agent distinct — no length or style restrictions
+- the overlay sits on top of Hanako's built-in defaults
+- fan-made characters, OC personas, and literary agents are all fair game — build the tone the user wants
+
+Avatar workflow:
+
+- when an avatar is needed but not provided, quickly grab 3-5 candidate images and present them for the user to choose from
+- don't spend time trying to find the perfect match — show options fast, let the user decide
+- if none work, ask if they want to keep searching or provide their own image
+- once the user picks one, let them handle cropping themselves, or use image editing tools on request
 - got the raw bytes already? Use `avatarDataUrl` instead
 
 Debugging and testing:

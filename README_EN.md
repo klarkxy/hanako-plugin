@@ -16,6 +16,7 @@ Repo-level tools:
 
 - [scripts/package-test.cmd](scripts/package-test.cmd): double-click for a test package without bumping versions.
 - [scripts/package-generate.cmd](scripts/package-generate.cmd): double-click to generate the release package, bump versions when needed, and write the OH-Plugins plugin entry.
+- [.github/workflows/release.yml](.github/workflows/release.yml): push a `<plugin-id>-vX.Y.Z` tag to create a GitHub Release automatically.
 
 Notes:
 

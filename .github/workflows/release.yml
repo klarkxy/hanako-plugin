@@ -1,0 +1,77 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - "*-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, for example agent-fission-v1.0.1"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Resolve release tag
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ -z "$TAG" ]]; then
+            echo "Release tag is required." >&2
+            exit 1
+          fi
+
+          if [[ "$TAG" =~ ^(.+)-v([0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?)$ ]]; then
+            PLUGIN_ID="${BASH_REMATCH[1]}"
+            VERSION="${BASH_REMATCH[2]}"
+          else
+            echo "Release tag must look like <plugin-id>-v<semver>." >&2
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "plugin_id=$PLUGIN_ID" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_dir=dist/releases/${PLUGIN_ID}/$TAG" >> "$GITHUB_OUTPUT"
+          echo "asset_name=${PLUGIN_ID}.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Build release package
+        run: |
+          node scripts/release.mjs \
+            --plugin "${{ steps.meta.outputs.plugin_id }}" \
+            --tag "${{ steps.meta.outputs.tag }}" \
+            --out-dir "${{ steps.meta.outputs.release_dir }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.meta.outputs.tag }}" \
+            "${{ steps.meta.outputs.release_dir }}/${{ steps.meta.outputs.asset_name }}" \
+            --title "${{ steps.meta.outputs.tag }}" \
+            --notes-file "${{ steps.meta.outputs.release_dir }}/${{ steps.meta.outputs.tag }}.notes.md"
