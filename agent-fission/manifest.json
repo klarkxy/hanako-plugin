@@ -1,0 +1,8 @@
+{
+  "manifestVersion": 1,
+  "id": "agent-fission",
+  "name": "Agent Fission",
+  "version": "0.1.0",
+  "description": "Allow the primary agent to create a persistent standalone agent with its own identity and ishiki.",
+  "license": "Apache-2.0"
+}

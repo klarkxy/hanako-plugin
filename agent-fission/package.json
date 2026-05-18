@@ -1,0 +1,8 @@
+{
+  "name": "agent-fission",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hanako plugin for letting the primary agent create a persistent standalone agent.",
+  "license": "Apache-2.0"
+}
