@@ -12,6 +12,18 @@
 
 ---
 
+## 0. 一键打包脚本
+
+这份流程现在配套两个双击脚本：[`scripts/package-test.cmd`](scripts/package-test.cmd) 和 [`scripts/package-generate.cmd`](scripts/package-generate.cmd)。
+
+- `package-test.cmd` 只做测试打包，不增长版本号。
+- `package-generate.cmd` 在工作区内容更新但版本号没变时，会自动递增 patch 版本。
+- 生成包时，OH-Plugins 侧只写 `plugins/<id>.json|yaml` 这一个插件条目文件，不再复制整个源码目录。
+- release 包直接从工作区打包，包内会额外带上外层 `STAT-LICENSE`。
+- `homepage`、`repository` 和 `readmeUrl` 统一从 `STAT-LICENSE` 里的 `Project Url` 生成，README 指向每个插件自己的 README。
+- 如果本机 OpenHanako 正在运行，测试和生成都会尝试把源码推到 dev 安装槽。
+- `CHANGELOG.md` 只保留“日期 + 插件 + 动作”一行一条的中文记录，最新的动作永远排在最前面。
+
 ## 1. 先看哪些插件最值得参考
 
 像侦探勘查现场一样，我找到了几份最有价值的参考样本。
@@ -512,14 +524,16 @@ export default class MyPlugin {
 
 不要把半成品直接塞进正式插件目录反复覆盖。
 
-### 第 8 步：需要发布到市场时，再看 OH-Plugins
+### 第 8 步：需要发布时，再看 OH-Plugins
 
 插件真正要公开分发时，才需要继续做这些事情：
 
 - 产出 release zip
 - 计算 `sha256`
-- 在 OH-Plugins 提交市场条目
+- 在 OH-Plugins 提交对应的 `plugins/<id>.json|yaml` 条目
 - 补 README、权限说明、兼容版本说明
+- 项目地址统一写 `https://github.com/klarkxy/hanako-plugin`
+- README 统一填每个插件自己的 README
 - 准备完整的市场条目——根级字段配一个示例就够了，完整条目还要包含 `versions[]` 数组，每个版本声明 `compatibility.minAppVersion` 和 `distribution`：
 
 ```yaml
@@ -534,7 +548,7 @@ compatibility:
   minAppVersion: 0.170.0
 distribution:
   kind: release
-  packageUrl: https://github.com/.../releases/download/v1.0.0/plugin.zip
+  packageUrl: https://github.com/klarkxy/hanako-plugin/releases/download/v1.0.0/plugin.zip
   sha256: ...
 versions:
   - version: 1.0.0
@@ -542,7 +556,7 @@ versions:
       minAppVersion: 0.170.0
     distribution:
       kind: release
-      packageUrl: https://github.com/.../my-plugin-v1.0.0.zip
+      packageUrl: https://github.com/klarkxy/hanako-plugin/releases/download/my-plugin-v1.0.0/my-plugin.zip
       sha256: ...
 ```
 

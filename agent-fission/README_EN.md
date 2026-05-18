@@ -4,14 +4,6 @@
 
 Agent Fission is a tool-only Hanako plugin — no UI, just one thing: **forge a real persistent agent**.
 
-Plugin contents:
-
-- [manifest.json](manifest.json)
-- [package.json](package.json)
-- [skills/agent-fission/SKILL.md](skills/agent-fission/SKILL.md)
-- [tools/split-agent.js](tools/split-agent.js)
-- [tests/smoke.mjs](tests/smoke.mjs)
-
 It lets the primary agent create a Hanako agent that sticks around — not a one-off subagent that vanishes after the task.
 
 | Capability | Description |

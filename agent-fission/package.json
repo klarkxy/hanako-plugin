@@ -1,17 +1,17 @@
 {
   "name": "agent-fission",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "description": "Hanako plugin for letting the primary agent create a persistent standalone agent with identity, ishiki, and optional avatar.",
-  "license": "Apache-2.0",
+  "license": "SATA-2.0",
   "author": {
     "name": "klarkxy"
   },
-  "homepage": "https://github.com/liliMozi/OH-Plugins",
+  "homepage": "https://github.com/klarkxy/hanako-plugin",
   "repository": {
     "type": "git",
-    "url": "https://github.com/liliMozi/OH-Plugins.git"
+    "url": "https://github.com/klarkxy/hanako-plugin.git"
   },
   "keywords": [
     "hanako-plugin",

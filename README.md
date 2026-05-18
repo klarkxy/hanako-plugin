@@ -12,6 +12,11 @@
 
 - [PLUGIN_CREATION_WORKFLOW.md](PLUGIN_CREATION_WORKFLOW.md)：插件从零到上线的完整流程与实现参考。
 
+仓库级工具：
+
+- [scripts/package-test.cmd](scripts/package-test.cmd)：测试打包，不增长版本号。
+- [scripts/package-generate.cmd](scripts/package-generate.cmd)：生成发布包，必要时自动增长版本号并写入 OH-Plugins 插件条目。
+
 补充说明：
 
 - 要加新插件？在根目录下建个同级文件夹就行。每个插件留好自己的 `manifest.json`、`package.json`、`skills/`、`tools/`，`tests/` 可选。

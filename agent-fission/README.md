@@ -4,14 +4,6 @@
 
 Agent Fission 是一个纯工具型 Hanako 插件——它不做界面，只做一件事：**造一个真正的持久化 Agent**。
 
-插件目录一览：
-
-- [manifest.json](manifest.json)
-- [package.json](package.json)
-- [skills/agent-fission/SKILL.md](skills/agent-fission/SKILL.md)
-- [tools/split-agent.js](tools/split-agent.js)
-- [tests/smoke.mjs](tests/smoke.mjs)
-
 它让 primary agent 创建的是一个会一直活着的 Hanako agent，而不是用完就丢的运行时 subagent。
 
 | 能力 | 说明 |
