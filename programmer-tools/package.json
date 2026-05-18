@@ -1,0 +1,30 @@
+{
+  "name": "programmer-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hanako plugin that exposes a narrow, sandboxed programmer toolset for Python, Node, and simple HTTP requests.",
+  "license": "SATA-2.0",
+  "author": {
+    "name": "klarkxy"
+  },
+  "homepage": "https://github.com/klarkxy/hanako-plugin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/klarkxy/hanako-plugin.git"
+  },
+  "keywords": [
+    "hanako-plugin",
+    "developer-tools",
+    "python",
+    "node",
+    "http"
+  ],
+  "scripts": {
+    "test": "node tests/smoke.mjs",
+    "smoke": "node tests/smoke.mjs"
+  },
+  "engines": {
+    "hanako": ">=0.216.11"
+  }
+}

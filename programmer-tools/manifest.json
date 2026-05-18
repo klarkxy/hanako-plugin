@@ -1,0 +1,29 @@
+{
+  "manifestVersion": 1,
+  "id": "programmer-tools",
+  "name": "Programmer Tools",
+  "version": "0.1.0",
+  "description": "Expose a small set of sandboxed programmer commands so the agent can prefer Python, Node, and simple HTTP requests over raw bash.",
+  "author": {
+    "name": "klarkxy"
+  },
+  "license": "SATA-2.0",
+  "minAppVersion": "0.216.11",
+  "trust": "restricted",
+  "homepage": "https://github.com/klarkxy/hanako-plugin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/klarkxy/hanako-plugin.git"
+  },
+  "categories": [
+    "developer-tools",
+    "tools"
+  ],
+  "keywords": [
+    "python",
+    "node",
+    "http",
+    "sandbox",
+    "programmer-tools"
+  ]
+}
