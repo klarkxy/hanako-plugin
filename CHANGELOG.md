@@ -1,6 +1,7 @@
 # 更新日志
 
-- 2026-05-19 [programmer-tools] 新增首个最小可用版，提供受控 Python、Node 与 HTTP 请求工具，并通过宿主沙箱 helper 优先替代直接 bash。
+
+- 2026-05-19 [roleplay] 新增 roleplay 插件：对话中可用“开启扮演模式”进入深度扮演，并持续引导场景推进和续聊。
 - 2026-05-18 [agent-fission] 生成包完成，版本保持 1.0.4
 - 2026-05-18 [agent-fission] 生成包完成，版本保持 1.0.3
 - 2026-05-18 [agent-fission] 生成包完成，版本保持 1.0.2

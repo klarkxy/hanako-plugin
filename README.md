@@ -7,6 +7,7 @@
 当前住户：
 
 - [agent-fission](agent-fission/README.md) —— 创建有独立身份、ishiki 和可选 public-ishiki 的真正持久化 Hanako agent。
+- [roleplay](roleplay/README.md) —— 在对话中用“开启扮演模式”进入深度扮演，并持续引导场景推进与续聊。
 
 仓库级参考：
 

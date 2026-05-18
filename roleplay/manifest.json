@@ -1,0 +1,32 @@
+{
+  "manifestVersion": 1,
+  "id": "roleplay",
+  "name": "roleplay",
+  "version": "1.0.0",
+  "description": "在对话中手动开启的深度扮演插件，输出规则参考语C、酒馆等沉浸式角色扮演应用，并持续引导场景推进与续聊。",
+  "author": {
+    "name": "klarkxy"
+  },
+  "license": "SATA-2.0",
+  "minAppVersion": "0.170.0",
+  "trust": "restricted",
+  "homepage": "https://github.com/klarkxy/hanako-plugin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/klarkxy/hanako-plugin.git"
+  },
+  "categories": [
+    "skills",
+    "roleplay"
+  ],
+  "keywords": [
+    "roleplay",
+    "deep-roleplay",
+    "tavern",
+    "语C",
+    "酒馆",
+    "沉浸",
+    "persona",
+    "continuation"
+  ]
+}
