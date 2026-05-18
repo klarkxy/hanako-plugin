@@ -15,7 +15,7 @@
 仓库级工具：
 
 - [scripts/package-test.cmd](scripts/package-test.cmd)：测试打包，不增长版本号。
-- [scripts/package-generate.cmd](scripts/package-generate.cmd)：生成发布包，必要时自动增长版本号并写入 OH-Plugins 插件条目。
+- [scripts/package-generate.cmd](scripts/package-generate.cmd)：生成发布包，必要时自动增长版本号，写入 OH-Plugins 插件条目，并自动提交和推送发布 tag。
 - [.github/workflows/release.yml](.github/workflows/release.yml)：推 `<plugin-id>-vX.Y.Z` tag 时自动创建 GitHub Release。
 
 补充说明：

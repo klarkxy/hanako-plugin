@@ -29,6 +29,7 @@ function normalizePath(value) {
 function parseArgs(argv) {
   const options = {
     dryRun: false,
+    publish: false,
     skipOpenHanako: false,
     skipLocalMarketplace: false,
     skipOfficial: false,
@@ -59,6 +60,10 @@ function parseArgs(argv) {
     }
     if (arg === "--generate") {
       options.mode = "generate";
+      continue;
+    }
+    if (arg === "--publish") {
+      options.publish = true;
       continue;
     }
     if (arg.startsWith("--mode=")) {
@@ -341,6 +346,87 @@ async function runNodeScript(scriptPath, args, cwd) {
   });
 }
 
+async function runGitCommand(args, cwd) {
+  return await new Promise((resolve, reject) => {
+    const child = spawn("git", args, {
+      cwd,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`git ${args.join(" ")} exited with code ${code}${stderr.trim() ? `\n${stderr.trim()}` : ""}`));
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+  });
+}
+
+async function gitHasChanges(repoRoot, paths) {
+  if (paths.length === 0) return false;
+  const result = await runGitCommand(["status", "--porcelain", "--untracked-files=all", "--", ...paths], repoRoot);
+  return result.stdout.trim().length > 0;
+}
+
+async function gitCurrentBranch(repoRoot) {
+  const result = await runGitCommand(["branch", "--show-current"], repoRoot);
+  return text(result.stdout);
+}
+
+async function gitTagExists(repoRoot, tag) {
+  try {
+    await runGitCommand(["rev-parse", "-q", "--verify", `refs/tags/${tag}`], repoRoot);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function publishGitChanges({ repoRoot, paths, releaseTags = [], commitMessage, remote = "origin", push = false }) {
+  const uniquePaths = [...new Set(paths.map((value) => value.split(path.sep).join("/")).filter(Boolean))];
+  if (uniquePaths.length === 0) {
+    return { committed: false, pushed: false, tags: [] };
+  }
+
+  if (!(await gitHasChanges(repoRoot, uniquePaths))) {
+    return { committed: false, pushed: false, tags: [] };
+  }
+
+  const branch = await gitCurrentBranch(repoRoot);
+  assert(branch, `${path.relative(WORKSPACE_ROOT, repoRoot)}: 当前分支为空，无法自动发布`);
+
+  await runGitCommand(["commit", "--only", "-m", commitMessage, "--", ...uniquePaths], repoRoot);
+
+  const tags = [];
+  for (const tag of releaseTags) {
+    if (await gitTagExists(repoRoot, tag)) {
+      throw new Error(`${path.relative(WORKSPACE_ROOT, repoRoot)}: tag 已存在，无法重复创建：${tag}`);
+    }
+    await runGitCommand(["tag", "-a", tag, "-m", tag], repoRoot);
+    tags.push(tag);
+  }
+
+  if (push || tags.length > 0) {
+    const pushArgs = ["push", remote, `HEAD:${branch}`];
+    if (tags.length > 0) {
+      pushArgs.push("--follow-tags");
+    }
+    await runGitCommand(pushArgs, repoRoot);
+  }
+
+  return { committed: true, pushed: push || tags.length > 0, tags };
+}
+
 function selectEntryFile(pluginsDir, pluginId) {
   const candidates = [
     path.join(pluginsDir, `${pluginId}.yaml`),
@@ -617,7 +703,7 @@ async function appendChangelog(runLines, dryRun) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
-    console.log(`用法：node scripts/sync-all.mjs [--test|--generate] [--dry-run] [--skip-openhanako] [--skip-local-marketplace] [--skip-official] [plugin-id ...]\n\n说明：\n  --test                  测试打包，不增长版本号\n  --generate              生成发布包，必要时自动增长版本号并写入 OH-Plugins 插件条目\n  --dry-run               只预览，不写文件\n  --skip-openhanako       跳过本机 OpenHanako dev 安装\n  --skip-local-marketplace 跳过本机市场文件更新\n  --skip-official         跳过 OH-Plugins 插件条目写入`);
+    console.log(`用法：node scripts/sync-all.mjs [--test|--generate] [--publish] [--dry-run] [--skip-openhanako] [--skip-local-marketplace] [--skip-official] [plugin-id ...]\n\n说明：\n  --test                  测试打包，不增长版本号\n  --generate              生成发布包，必要时自动增长版本号并写入 OH-Plugins 插件条目\n  --publish               生成结束后自动提交、打 tag，并推送当前仓库和 OH-Plugins 仓库\n  --dry-run               只预览，不写文件\n  --skip-openhanako       跳过本机 OpenHanako dev 安装\n  --skip-local-marketplace 跳过本机市场文件更新\n  --skip-official         跳过 OH-Plugins 插件条目写入`);
     return;
   }
 
@@ -635,6 +721,10 @@ async function main() {
   const localHomes = resolveOpenHanakoHomes();
   const openHanakoUrls = resolveOpenHanakoBaseUrls();
   const changelogLines = [];
+  const workspacePublishPaths = new Set();
+  const officialPublishPaths = new Set();
+  const publishedTags = [];
+  const changelogPath = path.join(WORKSPACE_ROOT, "CHANGELOG.md");
 
   console.log(`发现 ${plugins.length} 个插件，开始同步。`);
   console.log(`工作区：${WORKSPACE_ROOT}`);
@@ -682,6 +772,10 @@ async function main() {
         await writeJson(plugin.packagePath, plugin.packageJson, false);
       }
       plugin.previousVersion = previousVersion;
+      workspacePublishPaths.add(path.relative(WORKSPACE_ROOT, plugin.manifestPath));
+      if (plugin.packagePath) {
+        workspacePublishPaths.add(path.relative(WORKSPACE_ROOT, plugin.packagePath));
+      }
     }
 
     const packageArtifact = await createPackageArtifact(plugin, sharedLicense, options.dryRun);
@@ -718,6 +812,9 @@ async function main() {
       }
 
       if (officialResult) {
+        officialPublishPaths.add(path.relative(OH_PLUGINS_ROOT, officialResult.officialEntryPath));
+        officialPublishPaths.add(path.relative(OH_PLUGINS_ROOT, path.join(OH_PLUGINS_ROOT, "marketplace.json")));
+        publishedTags.push(officialResult.releaseTag);
         console.log(`- [${plugin.id}] 已写入 OH-Plugins 插件条目：${officialResult.officialEntryPath}`);
         console.log(`- [${plugin.id}] 已打包发布包：${packageArtifact.packageResult.file}`);
         console.log(`- [${plugin.id}] 版本标签：${officialResult.releaseTag}`);
@@ -740,7 +837,34 @@ async function main() {
 
   if (changelogLines.length > 0) {
     await appendChangelog(changelogLines, options.dryRun);
-    console.log(`已记录中文更新日志：${path.join(WORKSPACE_ROOT, "CHANGELOG.md")}`);
+    console.log(`已记录中文更新日志：${changelogPath}`);
+    if (!options.dryRun) {
+      workspacePublishPaths.add(path.relative(WORKSPACE_ROOT, changelogPath));
+    }
+  }
+
+  if (options.publish && !options.dryRun) {
+    const pluginIdsText = plugins.map((plugin) => plugin.id).join(", ");
+    const workspacePublishResult = await publishGitChanges({
+      repoRoot: WORKSPACE_ROOT,
+      paths: [...workspacePublishPaths],
+      releaseTags: publishedTags,
+      commitMessage: `chore(release): ${pluginIdsText}`,
+      remote: "origin",
+      push: true,
+    });
+
+    const officialPublishResult = await publishGitChanges({
+      repoRoot: OH_PLUGINS_ROOT,
+      paths: [...officialPublishPaths],
+      commitMessage: `chore(marketplace): ${pluginIdsText}`,
+      remote: "origin",
+      push: true,
+    });
+
+    if (workspacePublishResult.committed || officialPublishResult.committed) {
+      console.log("已自动提交并推送生成结果。");
+    }
   }
 
   if (options.dryRun) {

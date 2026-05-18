@@ -1,3 +1,3 @@
 @echo off
 setlocal
-node "%~dp0sync-all.mjs" --generate %*
+node "%~dp0sync-all.mjs" --generate --publish %*

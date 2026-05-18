@@ -24,6 +24,7 @@
 - 如果本机 OpenHanako 正在运行，测试和生成都会尝试把源码推到 dev 安装槽。
 - `CHANGELOG.md` 只保留“日期 + 插件 + 动作”一行一条的中文记录，最新的动作永远排在最前面。
 - GitHub Release 走 tag 驱动：推 `<plugin-id>-vX.Y.Z` 这种 tag 后，`.github/workflows/release.yml` 会自动打包对应插件的 zip 并创建 Release。
+- `scripts/package-generate.cmd` 现在会顺手提交生成结果、打 tag，并推送当前仓库和 OH-Plugins 仓库；如果你只想本地预览，继续用 `scripts/package-test.cmd`。
 
 ## 1. 先看哪些插件最值得参考
 
@@ -563,7 +564,7 @@ versions:
 
 在此之前，不必折腾市场元数据。
 
-GitHub Release 的默认路径是：先执行 `scripts/package-generate.cmd`，再推 `<plugin-id>-vX.Y.Z` tag。Workflow 会从对应的插件目录重新打包 release zip、生成 sha256，并把 changelog 顶部对应条目写进 release notes。
+GitHub Release 的默认路径是：直接执行 `scripts/package-generate.cmd`。它会完成版本递增、OH-Plugins 条目更新、生成提交、tag 和 push；随后 `.github/workflows/release.yml` 会从对应的插件目录重新打包 release zip、生成 sha256，并把 changelog 顶部对应条目写进 release notes。
 
 ---
 
