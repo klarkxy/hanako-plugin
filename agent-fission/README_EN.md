@@ -9,8 +9,7 @@ It lets the primary agent create a Hanako agent that sticks around — not a one
 | Capability | Description |
 |------------|-------------|
 | 🆕 Agent creation | Creates a brand-new persistent Hanako agent via the local API |
-| 🧬 Identity overlay | Preserves defaults + layers a custom `identity.md` |
-| 🧠 Ishiki overlay | Preserves defaults + layers a custom `ishiki.md` |
+| 🧬 Identity & Ishiki | `overlay` mode preserves defaults + layers additions; `replace` mode full custom control; supports auto-filling from web search given a character name |
 | 🌐 Public-ishiki | Optionally writes `public-ishiki.md` |
 | 🖼️ Avatar | Downloads from URL or accepts a Data URL |
 | 🚫 Permission guard | Refuses to run when the caller isn't the primary agent |
@@ -22,8 +21,8 @@ Installed tool name:
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `name` | ✅ | Display name for the new agent |
-| `identity` | ✅ | `identity.md` content or overlay |
-| `ishiki` | ✅ | `ishiki.md` content or overlay |
+| `identity` | ✅ | Identity content (user provides, or just a character name for auto-fill) |
+| `ishiki` | ✅ | Ishiki content (same as above) |
 | `id` | | Stable agent ID; auto-generated if omitted |
 | `yuan` | | Base yuan template: `hanako` / `butter` / `ming` / `kong` |
 | `publicIshiki` | | Optional `public-ishiki.md` content |
@@ -68,4 +67,4 @@ More notes:
 - The new agent is a normal standalone Hanako agent.
 - It can later have its own sessions, memory, files, and tasks.
 - This plugin **does not** create runtime-only subagents.
-- In `contentMode=overlay`, the plugin reads Hanako's freshly created default `identity.md`, `ishiki.md`, and `public-ishiki.md` first, then appends your short additions on top.
+- `contentMode=overlay` reads Hanako defaults + layers additions; `contentMode=replace` writes from scratch — ideal for full OC personas.
