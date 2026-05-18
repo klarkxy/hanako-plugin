@@ -1,5 +1,7 @@
 # 更新日志
 
+- 2026-05-18 [agent-fission] 生成包完成，版本保持 1.0.2
+- 2026-05-18 [agent-fission] 测试包完成，版本保持 1.0.2
 - 2026-05-18 [agent-fission] 生成包完成，版本从 1.0.1 自动递增到 1.0.2
 - 2026-05-18 [agent-fission] 新增 package-test / package-generate 双脚本；测试不递增版本，生成在必要时自动递增版本并写 OH-Plugins 插件条目。
 - 2026-05-18 [agent-fission] 首个市场发布，完成持久化 Agent、identity、ishiki、可选 public-ishiki、头像支持与 smoke test。
