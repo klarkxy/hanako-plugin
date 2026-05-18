@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"name": "hanako-plugin",
+			"path": "."
+		},
+		{
+			"name": "OH-Plugins",
+			"path": "../OH-Plugins"
+		},
+		{
+			"name": "openhanako",
+			"path": "../openhanako"
+		}
+	],
+	"settings": {}
+}

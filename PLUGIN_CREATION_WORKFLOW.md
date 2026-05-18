@@ -1,3 +1,5 @@
+> 大家好呀~ 我是艾薇娜亲的私人助手 Sherry 酱，来自开源库 OpenHanako，今天由 DeepSeek V4 Flash 老师代笔！🤖✨
+
 # OpenHanako 插件创建流程说明
 
 这份文档不是官方 API 手册的复读机——它是我翻遍了以下三类资料后，亲手整理出来的可执行的办案手册：
@@ -6,7 +8,7 @@
 - 官方社区市场仓库 OH-Plugins
 - GitHub 上已公开的第三方 Hanako / OpenHanako 插件仓库
 
-适用场景：后续在这个目录下开发社区插件时，先翻这份文档，再决定怎么搭结构、按什么顺序实现。
+**适用场景**：后续在这个目录下开发社区插件时，先翻这份文档，再决定怎么搭结构、按什么顺序实现。
 
 ---
 
@@ -183,25 +185,27 @@
 
 宿主会给插件上下文注入这些常用字段：
 
-- `pluginId`
-- `pluginDir`
-- `dataDir`
-- `bus`
-- `config`
-- `log`
-- `registerSessionFile`
-- `stageFile`
+| 字段 | 说明 |
+|------|------|
+| `pluginId` | 插件唯一标识 |
+| `pluginDir` | 插件安装目录路径 |
+| `dataDir` | 插件私有数据目录 |
+| `bus` | 事件总线（受限版只有 `emit/subscribe/request`） |
+| `config` | 配置读写（`get/set`） |
+| `log` | 带 `pluginId` 前缀的日志工具 |
+| `registerSessionFile` | 文件登记（低层 API） |
+| `stageFile` | **推荐** —— 文件登记 + 自动生成 `mediaItem` |
 
 运行时上下文里还可能带上：
 
-- `sessionPath`
-- `serverId`
-- `serverNodeId`
-- `userId`
-- `studioId`
-- `connectionKind`
-- `credentialKind`
-- `executionBoundary`
+| 字段 | 说明 |
+|------|------|
+| `sessionPath` | 当前会话路径 |
+| `serverId` / `serverNodeId` | 服务端标识 |
+| `userId` / `studioId` | 用户与 Studio 标识 |
+| `connectionKind` | 连接类型（`local` / `lan` / `relay` 等） |
+| `credentialKind` | 凭证类型 |
+| `executionBoundary` | 执行边界沙盒信息 |
 
 需要特别注意两点：
 
@@ -243,15 +247,17 @@
 
 写了 `activationEvents` 就可以做按需激活，例如：
 
-- `onStartup`
-- `onPageOpen`
-- `onWidgetOpen`
-- `onToolCall`
-- `onToolCall:name`
-- `onBusRequest`（预留）
-- `onBusRequest:type`（预留）
+| 事件 | 触发时机 |
+|------|---------|
+| `onStartup` | 插件加载时立刻执行 `onload()` |
+| `onPageOpen` | 用户打开插件页面 route |
+| `onWidgetOpen` | 用户打开插件 widget route |
+| `onToolCall` | 插件任意静态 tool 被调用 |
+| `onToolCall:name` | 指定静态 tool 被调用 |
+| `onBusRequest` | 总线请求触发（预留） |
+| `onBusRequest:type` | 指定总线能力请求触发（预留） |
 
-这个机制很适合避免"插件一启动就把所有重资源全都拉起来"的笨重做法。
+> 💡 这个机制很适合避免「插件一启动就把所有重资源全都拉起来」的笨重做法。
 
 ---
 
@@ -259,57 +265,13 @@
 
 开动之前先问自己一个问题：**这个插件到底是给 Agent 加能力，还是给用户加界面？**
 
-### 方案 A：tool-only 插件
+| 形态 | 适合 | 权限 | 最小目录 |
+|------|------|------|---------|
+| **A：tool-only** | 只是给 Agent 加工具，无 UI / 无路由 / 无生命周期 | `restricted` | `tools/hello.js` |
+| **B：tool + page/widget** | 既要工具也要图形界面，需要 iframe + 宿主能力 | `full-access` | `manifest.json` + `routes/page.js` + `tools/hello.js` + `ui/Panel.tsx` |
+| **C：runtime/integration** | 外部 CLI / 后台任务 / bus handler / 复杂状态 | `full-access` | 基于 B 再加 `index.js` |
 
-适合：
-
-- 只是给 Agent 增加工具
-- 不需要页面
-- 不需要 HTTP route
-- 不需要生命周期常驻状态
-
-建议：**优先从这个形态起步**，能省掉 80% 的初期复杂度。
-
-最小目录：
-
-```text
-my-plugin/
-  tools/
-    hello.js
-```
-
-### 方案 B：tool + page / widget 插件
-
-适合：
-
-- 既要给 Agent 工具，也要给用户图形界面
-- 需要 iframe 页面
-- 需要宿主能力，比如复制、打开外链
-
-最小目录：
-
-```text
-my-plugin/
-  manifest.json
-  routes/
-    page.js
-  tools/
-    hello.js
-  index.js
-  ui/
-    Panel.tsx
-```
-
-### 方案 C：runtime / integration 插件
-
-适合：
-
-- 要接外部 CLI
-- 要跑后台任务
-- 要注册 bus handler
-- 要保存较复杂的状态
-
-这种形态通常一开始就需要 `full-access`。
+> 💡 **建议**：优先从形态 A 起步。能省掉 80% 的初期复杂度，后面发现需要 UI 再加也不迟。
 
 ---
 
@@ -592,48 +554,21 @@ versions:
 
 如果现在要在这个目录里继续做新插件，二选一就行。
 
-### 起手模板 1：最稳妥的工具插件模板
+| 模板 | 适用场景 | 包含 |
+|------|---------|------|
+| **工具优先** | 绝大多数「先做能用」的场景 | `manifest.json` + `README.md` + `tools/main.js` |
+| **Page 优先** | 你非常确定「必须有界面」 | `manifest.json` + `index.js` + `routes/page.js` + `tools/main.js` + `ui/Panel.tsx` + `assets/panel.js/.css` |
 
-适合绝大多数"先做能用"的场景。
+**选工具优先的建议路线：**
 
-```text
-hanako-plugin/
-  manifest.json
-  README.md
-  tools/
-    main.js
-```
+1. 先把核心能力都收敛到一个工具里
+2. 工具跑顺了，再拆更多工具
+3. 后面才发现需要 UI？再加 `routes/` 和 `ui/`
 
-建议：
+**选 Page 优先时最该参考的：**
 
-- 先把核心能力都收敛到一个工具里
-- 工具跑顺了，再拆更多工具
-- 后面才发现需要 UI？再加 `routes/` 和 `ui/`
-
-### 起手模板 2：直接做 page 型插件
-
-适合你已经非常确定"必须有界面"的情况。
-
-```text
-hanako-plugin/
-  manifest.json
-  index.js
-  README.md
-  routes/
-    page.js
-  tools/
-    main.js
-  ui/
-    Panel.tsx
-  assets/
-    panel.js
-    panel.css
-```
-
-这时最该参考的不是官方文档，而是：
-
-- `openhanako/examples/plugins/sdk-showcase/`
-- `OH-Plugins/official-plugins/hanako-hyperframes/`
+- [`openhanako/examples/plugins/sdk-showcase/`](https://github.com/liliMozi/openhanako/tree/main/examples/plugins/sdk-showcase)
+- [`OH-Plugins/official-plugins/hanako-hyperframes/`](https://github.com/liliMozi/OH-Plugins/tree/main/official-plugins/hanako-hyperframes)
 
 ---
 
@@ -666,15 +601,16 @@ hanako-plugin/
 
 ## 7. 当前最推荐的参考顺序
 
-后面要继续做插件的话，按这个顺序翻参考：
+按这个优先级翻参考——从源码级到应用级，由内而外：
 
-1. 先看 `openhanako/examples/plugins/sdk-showcase/`
-2. 再看 `openhanako/core/plugin-manager.js`
-3. 然后按需求挑一个公开插件：
-   - 要 widget → 看 `acoolalien/hanako-todo-plugin`
-   - 要重工具链 → 看 `hyjump/hanako-bilibili-intake`
-   - 要 page + 资源 + 发行形态 → 看 `hanako-hyperframes`
-4. 最后再补看 `PLUGINS.md` 和 `PLUGIN_SDK.md`
+| 优先级 | 参考对象 | 理由 |
+|--------|---------|------|
+| ① | [`openhanako/examples/plugins/sdk-showcase/`](https://github.com/liliMozi/openhanako/tree/main/examples/plugins/sdk-showcase) | 最完整的官方模板，覆盖工具 + 页面 + 生命周期 |
+| ② | [`openhanako/core/plugin-manager.js`](https://github.com/liliMozi/openhanako/blob/main/core/plugin-manager.js) | 插件加载的源码真相，比任何文档都准确 |
+| ③a | [`acoolalien/hanako-todo-plugin`](https://github.com/acoolalien/hanako-todo-plugin) | 需要 widget 共享状态时参考 |
+| ③b | [`hyjump/hanako-bilibili-intake`](https://github.com/hyjump/hanako-bilibili-intake) | 需要重工具链 + 外部 CLI 时参考 |
+| ③c | [`hanako-hyperframes`](https://github.com/liliMozi/OH-Plugins/tree/main/official-plugins/hanako-hyperframes) | 需要 page + 资源 + 发行形态时参考 |
+| ④ | `PLUGINS.md` + `PLUGIN_SDK.md` | 官方说明，作为最终确认
 
 ---
 
