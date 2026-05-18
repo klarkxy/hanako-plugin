@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import assert from "node:assert/strict";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -654,10 +655,63 @@ async function updateOfficialMarketplace(entries, dryRun) {
   return marketplacePath;
 }
 
+async function installToPluginsDir(homePath, plugin, dryRun) {
+  const targetDir = path.join(homePath, "plugins", plugin.id);
+  if (dryRun) {
+    return { ok: true, skipped: true, targetDir };
+  }
+  try {
+    // 先清理旧目录，再复制
+    await fs.rm(targetDir, { recursive: true, force: true });
+    await fs.mkdir(path.dirname(targetDir), { recursive: true });
+    await fs.cp(plugin.pluginDir, targetDir, {
+      recursive: true,
+      force: true,
+      filter: (srcPath) => {
+        const relative = path.relative(plugin.pluginDir, srcPath);
+        if (!relative) return true;
+        const parts = relative.split(path.sep);
+        return !parts.some((part) => EXCLUDED_DIRS.has(part) || part === ".DS_Store");
+      },
+    });
+    // 同时复制许可文件
+    const licenseSrc = path.join(WORKSPACE_ROOT, "STAT-LICENSE");
+    if (await exists(licenseSrc)) {
+      await fs.copyFile(licenseSrc, path.join(targetDir, "STAT-LICENSE"));
+    }
+    return { ok: true, targetDir };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+function readServerInfo(homePath) {
+  const infoPath = path.join(homePath, "server-info.json");
+  try {
+    const raw = fsSync.readFileSync(infoPath, "utf8");
+    const parsed = JSON.parse(raw);
+    const port = Number(parsed?.port);
+    const token = typeof parsed?.token === "string" ? parsed.token.trim() : "";
+    if (Number.isInteger(port) && port > 0 && token) {
+      return { port, token, baseUrl: `http://127.0.0.1:${port}` };
+    }
+  } catch {}
+  return null;
+}
+
 async function installToOpenHanako(baseUrl, homePath, plugin, dryRun) {
   const sourcePath = path.join(homePath, "plugin-dev-sources", plugin.id);
   if (dryRun) {
     return { ok: true, skipped: true, sourcePath, baseUrl };
+  }
+
+  // 优先从 server-info.json 拿 token
+  const serverInfo = readServerInfo(homePath);
+  const headers = { "content-type": "application/json" };
+  if (serverInfo) {
+    headers["Authorization"] = `Bearer ${serverInfo.token}`;
+    // 用 server-info.json 的端口覆盖默认 URL
+    baseUrl = serverInfo.baseUrl;
   }
 
   const controller = new AbortController();
@@ -665,7 +719,7 @@ async function installToOpenHanako(baseUrl, homePath, plugin, dryRun) {
   try {
     const res = await fetch(new URL("/api/plugins/dev/install", baseUrl), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify({
         sourcePath,
         pluginId: plugin.id,
@@ -746,6 +800,8 @@ async function main() {
       continue;
     }
 
+    const fallbackHomePath = localHomes[0];
+
     let finalVersion = plugin.version;
     let versionChanged = false;
 
@@ -807,7 +863,14 @@ async function main() {
           if (syncedToOpenHanako) break;
         }
         if (!syncedToOpenHanako) {
-          console.log(`- [${plugin.id}] 本机 OpenHanako 未连接，已跳过 dev 安装。`);
+          // API 安装失败，文件级兜底：直接复制到 plugins 目录
+          const fallbackResult = await installToPluginsDir(fallbackHomePath, plugin, options.dryRun);
+          if (fallbackResult.ok) {
+            console.log(`- [${plugin.id}] 已通过文件复制安装到本机 OpenHanako：${fallbackResult.targetDir}`);
+            syncedToOpenHanako = true;
+          } else {
+            console.log(`- [${plugin.id}] 本机 OpenHanako 未连接，文件复制也失败：${fallbackResult.error}`);
+          }
         }
       }
 
