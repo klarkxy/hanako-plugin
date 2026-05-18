@@ -757,12 +757,8 @@ async function appendChangelog(runLines, dryRun) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
-    console.log(`用法：node scripts/sync-all.mjs [--test|--generate] [--publish] [--dry-run] [--skip-openhanako] [--skip-local-marketplace] [--skip-official] [plugin-id ...]\n\n说明：\n  --test                  测试打包，不增长版本号\n  --generate              生成发布包，必要时自动增长版本号并写入 OH-Plugins 插件条目\n  --publish               生成结束后自动提交、打 tag，并推送当前仓库和 OH-Plugins 仓库\n  --dry-run               只预览，不写文件\n  --skip-openhanako       跳过本机 OpenHanako dev 安装\n  --skip-local-marketplace 跳过本机市场文件更新\n  --skip-official         跳过 OH-Plugins 插件条目写入`);
+    console.log(`用法：node scripts/sync-all.mjs [--test|--generate] [--publish] [--dry-run] [--skip-openhanako] [--skip-local-marketplace] [--skip-official] [plugin-id ...]\n\n说明：\n  --test                  测试打包，不增长版本号\n  --generate              生成发布包，必要时自动增长版本号\n  --publish               生成结束后自动提交、打 tag，并推送当前仓库\n  --dry-run               只预览，不写文件\n  --skip-openhanako       跳过本机 OpenHanako dev 安装\n  --skip-local-marketplace 跳过本机市场文件更新\n  --skip-official         保留兼容，跳过官方仓库相关逻辑`);
     return;
-  }
-
-  if (!fsSync.existsSync(OH_PLUGINS_ROOT)) {
-    throw new Error(`找不到 OH-Plugins 仓库：${OH_PLUGINS_ROOT}`);
   }
 
   const sharedLicense = await readSharedLicenseInfo();
@@ -776,16 +772,12 @@ async function main() {
   const openHanakoUrls = resolveOpenHanakoBaseUrls();
   const changelogLines = [];
   const workspacePublishPaths = new Set();
-  const officialPublishPaths = new Set();
   const publishedTags = [];
   const changelogPath = path.join(WORKSPACE_ROOT, "CHANGELOG.md");
 
   console.log(`发现 ${plugins.length} 个插件，开始同步。`);
   console.log(`工作区：${WORKSPACE_ROOT}`);
-  console.log(`OH-Plugins：${OH_PLUGINS_ROOT}`);
   console.log(`共享许可证：${path.relative(WORKSPACE_ROOT, sharedLicense.filePath)}`);
-
-  const publishOfficial = options.mode === "generate" && !options.skipOfficial;
 
   for (const plugin of plugins) {
     const officialEntryPath = selectEntryFile(path.join(OH_PLUGINS_ROOT, "plugins"), plugin.id);
@@ -835,12 +827,7 @@ async function main() {
     }
 
     const packageArtifact = await createPackageArtifact(plugin, sharedLicense, options.dryRun);
-    let officialResult = null;
     try {
-      if (publishOfficial) {
-        officialResult = await writeOfficialPluginEntry(plugin, finalVersion, packageArtifact.packageResult, sharedLicense, options.dryRun);
-      }
-
       if (!options.skipLocalMarketplace) {
         for (const homePath of localHomes) {
           const marketplacePath = await updateLocalMarketplace(homePath, [plugin], options.dryRun, sharedLicense);
@@ -874,13 +861,11 @@ async function main() {
         }
       }
 
-      if (officialResult) {
-        officialPublishPaths.add(path.relative(OH_PLUGINS_ROOT, officialResult.officialEntryPath));
-        officialPublishPaths.add(path.relative(OH_PLUGINS_ROOT, path.join(OH_PLUGINS_ROOT, "marketplace.json")));
-        publishedTags.push(officialResult.releaseTag);
-        console.log(`- [${plugin.id}] 已写入 OH-Plugins 插件条目：${officialResult.officialEntryPath}`);
-        console.log(`- [${plugin.id}] 已打包发布包：${packageArtifact.packageResult.file}`);
-        console.log(`- [${plugin.id}] 版本标签：${officialResult.releaseTag}`);
+      const releaseTag = `${plugin.id}-v${finalVersion}`;
+      if (options.mode === "generate") {
+        publishedTags.push(releaseTag);
+        console.log(`- [${plugin.id}] 已完成生成包：${packageArtifact.packageResult.file}`);
+        console.log(`- [${plugin.id}] 版本标签：${releaseTag}`);
       } else {
         console.log(`- [${plugin.id}] 已完成测试打包：${packageArtifact.packageResult.file}`);
       }
@@ -917,15 +902,7 @@ async function main() {
       push: true,
     });
 
-    const officialPublishResult = await publishGitChanges({
-      repoRoot: OH_PLUGINS_ROOT,
-      paths: [...officialPublishPaths],
-      commitMessage: `chore(marketplace): ${pluginIdsText}`,
-      remote: "origin",
-      push: true,
-    });
-
-    if (workspacePublishResult.committed || officialPublishResult.committed) {
+    if (workspacePublishResult.committed) {
       console.log("已自动提交并推送生成结果。");
     }
   }
