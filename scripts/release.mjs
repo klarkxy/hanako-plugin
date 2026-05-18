@@ -111,6 +111,20 @@ async function readJsonIfExists(filePath) {
   return (await exists(filePath)) ? readJson(filePath) : null;
 }
 
+async function writeJson(filePath, value) {
+  await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+async function rewriteVersionIfPresent(filePath, version) {
+  if (!(await exists(filePath))) return false;
+  const value = await readJson(filePath);
+  if (value && typeof value === "object" && value.version !== version) {
+    value.version = version;
+    await writeJson(filePath, value);
+  }
+  return true;
+}
+
 async function discoverPluginId() {
   const entries = await fs.readdir(ROOT, { withFileTypes: true });
   const candidates = [];
@@ -350,11 +364,19 @@ async function main() {
   const versionFromTag = parsedTag?.version || null;
   const version = versionFromTag || text(manifest.version) || text(packageJson.version);
   assert(version, `${pluginId}: 找不到版本号`);
-  if (packageJson.version) {
-    assert(text(packageJson.version) === version, `${pluginId}: manifest.version 与 package.json.version 不一致`);
-  }
-  if (text(manifest.version)) {
-    assert(text(manifest.version) === version, `${pluginId}: manifest.version 必须与发布版本一致`);
+  if (versionFromTag) {
+    const sourceVersions = [text(manifest.version), text(packageJson.version)].filter(Boolean);
+    const mismatched = sourceVersions.length > 0 && sourceVersions.some((item) => item !== versionFromTag);
+    if (mismatched) {
+      console.warn(`${pluginId}: 源码版本 ${sourceVersions.join(", ")} 与 tag 版本 ${versionFromTag} 不一致，将以 tag 版本打包。`);
+    }
+  } else {
+    if (packageJson.version) {
+      assert(text(packageJson.version) === version, `${pluginId}: manifest.version 与 package.json.version 不一致`);
+    }
+    if (text(manifest.version)) {
+      assert(text(manifest.version) === version, `${pluginId}: manifest.version 必须与发布版本一致`);
+    }
   }
 
   const expectedTag = `${pluginId}-v${version}`;
@@ -376,6 +398,8 @@ async function main() {
   try {
     await copyDirectory(pluginDir, stagingDir);
     await fs.copyFile(path.join(ROOT, "STAT-LICENSE"), path.join(stagingDir, "STAT-LICENSE"));
+    await rewriteVersionIfPresent(path.join(stagingDir, "manifest.json"), version);
+    await rewriteVersionIfPresent(path.join(stagingDir, "package.json"), version);
 
     const packageResult = await createStoredZip({ rootDir: stagingDir, prefix: pluginId, outFile });
     const releaseNotes = await buildReleaseNotes(changelogPath, pluginId, tag);
