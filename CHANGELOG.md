@@ -1,5 +1,8 @@
 # 更新日志
 
+- 2026-05-19 [local-provider] 生成包完成，版本保持 0.1.0
+- 2026-05-19 [roleplay] 生成包完成，版本保持 1.0.0
+
 - 2026-05-19 [scripts] 调整仓库发版流程：每个 release 统一打出全部插件 zip，并改为用仓库级 release tag 生成 GitHub Release 与 changelog 摘要。
 - 2026-05-19 [local-provider] 新增 Local Provider 插件：默认接入 LM Studio 本地聊天 Provider，并提供图片、视频、语音的可配置本地运行时接口与语音工具。
 - 2026-05-18 [roleplay] 生成包完成，版本保持 1.0.0
