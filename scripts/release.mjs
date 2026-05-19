@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const EXCLUDED_DIRS = new Set(["tests", "ui", "node_modules"]);
 const EXCLUDED_FILES = new Set([".DS_Store", "package-lock.json"]);
-const RELEASE_TAG_RE = /^(?<pluginId>.+)-v(?<version>[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?)$/;
+const CHANGELOG_ENTRY_RE = /^\s*-\s+(?<date>\d{4}-\d{2}-\d{2})\s+\[(?<pluginId>[^\]]+)\]\s+(?<message>.+?)\s*$/;
+const PACKAGE_CHANGE_RE = /(?:生成包完成|测试包完成)/;
+const RELEASE_CHANGE_RE = /^生成包完成/;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -17,24 +19,13 @@ function text(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function parseReleaseTag(tag) {
-  const normalized = text(tag);
-  if (!normalized) return null;
-  const match = normalized.match(RELEASE_TAG_RE);
-  if (!match?.groups?.pluginId || !match.groups.version) return null;
-  return {
-    pluginId: match.groups.pluginId,
-    version: match.groups.version,
-  };
-}
-
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function parseArgs(argv) {
   const options = {
-    pluginId: null,
+    pluginIds: [],
     tag: null,
     outDir: null,
     help: false,
@@ -49,11 +40,11 @@ function parseArgs(argv) {
     }
 
     if (arg === "--plugin") {
-      options.pluginId = argv[++index] || "";
+      options.pluginIds.push(argv[++index] || "");
       continue;
     }
     if (arg.startsWith("--plugin=")) {
-      options.pluginId = arg.slice("--plugin=".length);
+      options.pluginIds.push(arg.slice("--plugin=".length));
       continue;
     }
 
@@ -79,18 +70,10 @@ function parseArgs(argv) {
       throw new Error(`未知参数：${arg}`);
     }
 
-    if (!options.pluginId) {
-      options.pluginId = arg;
-      continue;
-    }
-    if (!options.tag) {
-      options.tag = arg;
-      continue;
-    }
-
-    throw new Error(`多余的参数：${arg}`);
+    options.pluginIds.push(arg);
   }
 
+  options.pluginIds = unique(options.pluginIds.map((value) => text(value)).filter(Boolean));
   return options;
 }
 
@@ -125,7 +108,7 @@ async function rewriteVersionIfPresent(filePath, version) {
   return true;
 }
 
-async function discoverPluginId() {
+async function discoverPluginDirectories() {
   const entries = await fs.readdir(ROOT, { withFileTypes: true });
   const candidates = [];
 
@@ -140,11 +123,59 @@ async function discoverPluginId() {
     }
   }
 
-  if (candidates.length === 1) return candidates[0];
-  if (candidates.length === 0) {
-    throw new Error("没有找到可发布的插件目录");
+  return candidates.sort((a, b) => a.localeCompare(b));
+}
+
+async function loadPlugins(filterIds = []) {
+  const filters = new Set(filterIds);
+  const directories = await discoverPluginDirectories();
+  const plugins = [];
+  const matchedFilters = new Set();
+
+  for (const directory of directories) {
+    const pluginDir = path.join(ROOT, directory);
+    const manifestPath = path.join(pluginDir, "manifest.json");
+    const packagePath = path.join(pluginDir, "package.json");
+    const manifest = await readJson(manifestPath);
+    const packageJson = await readJsonIfExists(packagePath) || {};
+    const pluginId = text(manifest.id) || directory;
+
+    if (filters.size > 0 && !filters.has(pluginId) && !filters.has(directory)) {
+      continue;
+    }
+
+    if (filters.has(pluginId)) matchedFilters.add(pluginId);
+    if (filters.has(directory)) matchedFilters.add(directory);
+
+    const manifestVersion = text(manifest.version);
+    const packageVersion = text(packageJson.version);
+    const version = manifestVersion || packageVersion;
+    assert(version, `${pluginId}: 找不到版本号`);
+    if (manifestVersion && packageVersion) {
+      assert(manifestVersion === packageVersion, `${pluginId}: manifest.version 与 package.json.version 不一致`);
+    }
+
+    const homepage = text(manifest.homepage) || text(packageJson.homepage);
+    assert(homepage, `${pluginId}: 找不到 homepage`);
+    assert(pluginId === directory, `${directory}: manifest.id 必须与目录名一致，当前为 ${pluginId}`);
+
+    plugins.push({
+      pluginId,
+      version,
+      homepage,
+      pluginDir,
+      manifestPath,
+      packagePath,
+    });
   }
-  throw new Error(`检测到多个插件目录，请使用 --plugin 指定：${candidates.join(", ")}`);
+
+  if (filters.size > 0) {
+    const unresolved = [...filters].filter((value) => !matchedFilters.has(value));
+    assert(unresolved.length === 0, `找不到插件目录：${unresolved.join(", ")}`);
+  }
+
+  assert(plugins.length > 0, "没有找到可发布的插件目录");
+  return plugins.sort((a, b) => a.pluginId.localeCompare(b.pluginId));
 }
 
 async function copyDirectory(sourceDir, targetDir) {
@@ -277,155 +308,230 @@ async function createStoredZip({ rootDir, prefix, outFile }) {
   };
 }
 
-async function buildReleaseNotes(changelogPath, pluginId, tag) {
+function parseChangelogEntries(lines) {
+  const entries = [];
+  for (const line of lines) {
+    const match = line.match(CHANGELOG_ENTRY_RE);
+    if (!match?.groups?.pluginId || !match.groups.date || !match.groups.message) {
+      continue;
+    }
+    entries.push({
+      raw: line.trim(),
+      date: match.groups.date,
+      pluginId: match.groups.pluginId,
+      message: match.groups.message.trim(),
+    });
+  }
+  return entries;
+}
+
+function splitChangelogBlocks(content) {
+  const body = content.replace(/^#\s*更新日志\s*\r?\n+/i, "");
+  const lines = body.split(/\r?\n/);
+
+  while (lines.length > 0 && lines[0].trim() === "") {
+    lines.shift();
+  }
+
+  const currentBlock = [];
+  let index = 0;
+  for (; index < lines.length; index += 1) {
+    if (lines[index].trim() === "") {
+      index += 1;
+      break;
+    }
+    currentBlock.push(lines[index]);
+  }
+
+  return {
+    currentBlockEntries: parseChangelogEntries(currentBlock),
+    remainingEntries: parseChangelogEntries(lines.slice(index)),
+  };
+}
+
+function collectChangedPluginIds(currentBlockEntries, packagedPluginIds) {
+  const packagedSet = new Set(packagedPluginIds);
+  const releaseEntries = currentBlockEntries.filter((entry) => packagedSet.has(entry.pluginId) && RELEASE_CHANGE_RE.test(entry.message));
+  if (releaseEntries.length > 0) {
+    return unique(releaseEntries.map((entry) => entry.pluginId));
+  }
+
+  const packagedEntries = currentBlockEntries.filter((entry) => packagedSet.has(entry.pluginId) && PACKAGE_CHANGE_RE.test(entry.message));
+  if (packagedEntries.length > 0) {
+    return unique(packagedEntries.map((entry) => entry.pluginId));
+  }
+
+  const directEntries = currentBlockEntries.filter((entry) => packagedSet.has(entry.pluginId));
+  if (directEntries.length > 0) {
+    return unique(directEntries.map((entry) => entry.pluginId));
+  }
+
+  return [...packagedPluginIds];
+}
+
+function collectPluginNotes(remainingEntries, pluginId, limit = 3) {
+  const notes = [];
+  for (const entry of remainingEntries) {
+    if (entry.pluginId !== pluginId) continue;
+    if (PACKAGE_CHANGE_RE.test(entry.message)) continue;
+    notes.push(entry);
+    if (notes.length >= limit) break;
+  }
+  return notes;
+}
+
+async function buildReleaseNotes(changelogPath, tag, plugins) {
   if (!(await exists(changelogPath))) {
-    return `# ${tag}\n\nRelease for ${pluginId}.\n`;
+    return `# ${tag}\n\nRelease for ${plugins.length} plugins.\n`;
   }
 
   const content = await fs.readFile(changelogPath, "utf8");
-  const lines = content.split(/\r?\n/);
-  const entryPattern = new RegExp(`^\\s*-\\s+(?<date>\\d{4}-\\d{2}-\\d{2})\\s+\\[(?<pluginId>[^\\]]+)\\]\\s+`);
-  const notes = [];
-  let started = false;
-  let targetDate = null;
+  const { currentBlockEntries, remainingEntries } = splitChangelogBlocks(content);
+  const changedPluginIds = collectChangedPluginIds(currentBlockEntries, plugins.map((plugin) => plugin.pluginId));
+  const currentEntryByPlugin = new Map();
 
-  for (const line of lines) {
-    const match = line.match(entryPattern);
-
-    if (!started) {
-      if (match?.groups?.pluginId === pluginId) {
-        started = true;
-        targetDate = match.groups.date;
-        notes.push(line);
-      }
-      continue;
+  for (const entry of currentBlockEntries) {
+    if (!currentEntryByPlugin.has(entry.pluginId)) {
+      currentEntryByPlugin.set(entry.pluginId, entry);
     }
-
-    if (match) {
-      if (match.groups.date !== targetDate) {
-        break;
-      }
-      if (match.groups.pluginId === pluginId) {
-        notes.push(line);
-      }
-      continue;
-    }
-
-    if (line.trim() === "") {
-      notes.push(line);
-      continue;
-    }
-
-    break;
   }
 
-  if (notes.length === 0) {
-    return `# ${tag}\n\nRelease for ${pluginId}.\n`;
+  const lines = [
+    `# ${tag}`,
+    "",
+    `本次 Release 附带 ${plugins.length} 个插件压缩包。`,
+    "变更摘要根据 CHANGELOG.md 自动提取。",
+    "",
+    "## 打包资产",
+    "",
+  ];
+
+  for (const plugin of plugins) {
+    lines.push(`- ${plugin.pluginId} v${plugin.version}`);
   }
 
-  return [`# ${tag}`, "", ...notes].join("\n").trimEnd() + "\n";
+  lines.push("", "## 变更摘要", "");
+
+  for (const pluginId of changedPluginIds) {
+    const plugin = plugins.find((item) => item.pluginId === pluginId);
+    const notes = collectPluginNotes(remainingEntries, pluginId);
+    lines.push(`### ${pluginId}${plugin ? ` v${plugin.version}` : ""}`);
+    if (notes.length > 0) {
+      for (const note of notes) {
+        lines.push(`- ${note.date} ${note.message}`);
+      }
+    } else {
+      const fallback = currentEntryByPlugin.get(pluginId);
+      lines.push(`- ${fallback ? `${fallback.date} ${fallback.message}` : "未找到对应的更新日志条目。"}`);
+    }
+    lines.push("");
+  }
+
+  const unchangedCount = plugins.length - changedPluginIds.length;
+  if (unchangedCount > 0) {
+    lines.push(`其余 ${unchangedCount} 个插件本次随 Release 一并重新打包，但 CHANGELOG 没有记录新的变更摘要。`, "");
+  }
+
+  return lines.join("\n").trimEnd() + "\n";
 }
 
-function buildReleaseMetadata({ homepage, pluginId, version, tag, sha256, outFile }) {
+function buildAssetMetadata({ homepage, pluginId, version, tag, sha256, outFile, fileCount, bytes }) {
   const baseUrl = `${homepage.replace(/\/$/, "")}/`;
   return {
     pluginId,
     version,
     tag,
-    archivePath: path.relative(ROOT, outFile).split(path.sep).join("/"),
     assetName: `${pluginId}.zip`,
+    archivePath: path.relative(ROOT, outFile).split(path.sep).join("/"),
     sha256,
+    fileCount,
+    bytes,
     packageUrl: new URL(`releases/download/${tag}/${pluginId}.zip`, baseUrl).toString(),
     releaseUrl: new URL(`releases/tag/${tag}`, baseUrl).toString(),
   };
 }
 
-async function main() {
-  const options = parseArgs(process.argv.slice(2));
-  if (options.help) {
-    console.log(`用法：node scripts/release.mjs [--plugin <id>] [--tag <tag>] [--out-dir <dir>]\n\n说明：\n  --plugin   要发布的插件 id；如果省略，则优先从 tag 解析，单插件仓库则自动识别\n  --tag      发布 tag，默认使用 <plugin-id>-v<version>\n  --out-dir  产物输出目录，默认 dist/releases/<plugin-id>/<tag>`);
-    return;
-  }
+function buildReleaseMetadata({ tag, outDir, notesFile, assets }) {
+  return {
+    tag,
+    outDir: path.relative(ROOT, outDir).split(path.sep).join("/"),
+    notesFile: path.relative(ROOT, notesFile).split(path.sep).join("/"),
+    assets,
+  };
+}
 
-  const parsedTag = parseReleaseTag(options.tag);
-  const pluginId = text(options.pluginId) || parsedTag?.pluginId || await discoverPluginId();
-  assert(pluginId, "插件 id 不能为空");
-
-  const pluginDir = path.join(ROOT, pluginId);
-  assert(await exists(pluginDir), `${pluginId}: 找不到插件目录`);
-
-  const manifestPath = path.join(pluginDir, "manifest.json");
-  const packagePath = path.join(pluginDir, "package.json");
-  const manifest = await readJson(manifestPath);
-  const packageJson = await readJsonIfExists(packagePath) || {};
-
-  assert(manifest.id === pluginId, `${pluginId}: manifest.id 必须与目录 id 一致`);
-
-  const versionFromTag = parsedTag?.version || null;
-  const version = versionFromTag || text(manifest.version) || text(packageJson.version);
-  assert(version, `${pluginId}: 找不到版本号`);
-  if (versionFromTag) {
-    const sourceVersions = [text(manifest.version), text(packageJson.version)].filter(Boolean);
-    const mismatched = sourceVersions.length > 0 && sourceVersions.some((item) => item !== versionFromTag);
-    if (mismatched) {
-      console.warn(`${pluginId}: 源码版本 ${sourceVersions.join(", ")} 与 tag 版本 ${versionFromTag} 不一致，将以 tag 版本打包。`);
-    }
-  } else {
-    if (packageJson.version) {
-      assert(text(packageJson.version) === version, `${pluginId}: manifest.version 与 package.json.version 不一致`);
-    }
-    if (text(manifest.version)) {
-      assert(text(manifest.version) === version, `${pluginId}: manifest.version 必须与发布版本一致`);
-    }
-  }
-
-  const expectedTag = `${pluginId}-v${version}`;
-  const tag = text(options.tag) || expectedTag;
-  assert(tag === expectedTag, `${pluginId}: tag 必须是 ${expectedTag}`);
-
-  const homepage = text(manifest.homepage) || text(packageJson.homepage);
-  assert(homepage, `${pluginId}: 找不到 homepage`);
-
-  const outDir = path.resolve(options.outDir || path.join(ROOT, "dist", "releases", pluginId, tag));
-  const outFile = path.join(outDir, `${pluginId}.zip`);
-  const notesFile = path.join(outDir, `${tag}.notes.md`);
-  const metadataFile = path.join(outDir, `${tag}.release.json`);
-  const changelogPath = path.join(ROOT, "CHANGELOG.md");
-
-  const stagingRoot = await fs.mkdtemp(path.join(os.tmpdir(), `hanako-release-${pluginId}-`));
-  const stagingDir = path.join(stagingRoot, pluginId);
+async function packagePlugin(plugin, outDir) {
+  const stagingRoot = await fs.mkdtemp(path.join(os.tmpdir(), `hanako-release-${plugin.pluginId}-`));
+  const stagingDir = path.join(stagingRoot, plugin.pluginId);
+  const outFile = path.join(outDir, `${plugin.pluginId}.zip`);
 
   try {
-    await copyDirectory(pluginDir, stagingDir);
-    await fs.copyFile(path.join(ROOT, "STAT-LICENSE"), path.join(stagingDir, "STAT-LICENSE"));
-    await rewriteVersionIfPresent(path.join(stagingDir, "manifest.json"), version);
-    await rewriteVersionIfPresent(path.join(stagingDir, "package.json"), version);
+    await copyDirectory(plugin.pluginDir, stagingDir);
 
-    const packageResult = await createStoredZip({ rootDir: stagingDir, prefix: pluginId, outFile });
-    const releaseNotes = await buildReleaseNotes(changelogPath, pluginId, tag);
-    await fs.writeFile(notesFile, releaseNotes, "utf8");
+    const licensePath = path.join(ROOT, "STAT-LICENSE");
+    if (await exists(licensePath)) {
+      await fs.copyFile(licensePath, path.join(stagingDir, "STAT-LICENSE"));
+    }
 
-    const metadata = buildReleaseMetadata({
-      homepage,
-      pluginId,
-      version,
-      tag,
-      sha256: packageResult.sha256,
+    await rewriteVersionIfPresent(path.join(stagingDir, "manifest.json"), plugin.version);
+    await rewriteVersionIfPresent(path.join(stagingDir, "package.json"), plugin.version);
+
+    const packageResult = await createStoredZip({
+      rootDir: stagingDir,
+      prefix: plugin.pluginId,
       outFile,
     });
 
-    await fs.writeFile(metadataFile, `${JSON.stringify({ ...metadata, notesFile: path.relative(ROOT, notesFile).split(path.sep).join("/") }, null, 2)}\n`, "utf8");
-
-    console.log(JSON.stringify({
-      ...metadata,
-      notesFile: path.relative(ROOT, notesFile).split(path.sep).join("/"),
-      metadataFile: path.relative(ROOT, metadataFile).split(path.sep).join("/"),
-      fileCount: packageResult.fileCount,
-      bytes: packageResult.bytes,
-    }, null, 2));
+    return { outFile, packageResult };
   } finally {
     await fs.rm(stagingRoot, { recursive: true, force: true });
   }
+}
+
+async function main() {
+  const options = parseArgs(process.argv.slice(2));
+  if (options.help) {
+    console.log(`用法：node scripts/release.mjs [--plugin <id> ...] --tag <tag> [--out-dir <dir>]\n\n说明：\n  --plugin   只打包指定插件；省略时默认打包工作区里的全部插件\n  --tag      本次仓库级 Release tag，例如 release-20260519-120000-000\n  --out-dir  产物输出目录，默认 dist/releases/<tag>`);
+    return;
+  }
+
+  const tag = text(options.tag);
+  assert(tag, "发布 tag 不能为空");
+
+  const plugins = await loadPlugins(options.pluginIds);
+  const outDir = path.resolve(options.outDir || path.join(ROOT, "dist", "releases", tag));
+  const notesFile = path.join(outDir, `${tag}.notes.md`);
+  const metadataFile = path.join(outDir, `${tag}.release.json`);
+  const changelogPath = path.join(ROOT, "CHANGELOG.md");
+  const assets = [];
+
+  for (const plugin of plugins) {
+    const { outFile, packageResult } = await packagePlugin(plugin, outDir);
+    assets.push(buildAssetMetadata({
+      homepage: plugin.homepage,
+      pluginId: plugin.pluginId,
+      version: plugin.version,
+      tag,
+      sha256: packageResult.sha256,
+      outFile,
+      fileCount: packageResult.fileCount,
+      bytes: packageResult.bytes,
+    }));
+  }
+
+  const releaseNotes = await buildReleaseNotes(changelogPath, tag, plugins);
+  await fs.mkdir(outDir, { recursive: true });
+  await fs.writeFile(notesFile, releaseNotes, "utf8");
+
+  const metadata = buildReleaseMetadata({
+    tag,
+    outDir,
+    notesFile,
+    assets,
+  });
+  await fs.writeFile(metadataFile, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+
+  console.log(JSON.stringify(metadata, null, 2));
 }
 
 main().catch((error) => {

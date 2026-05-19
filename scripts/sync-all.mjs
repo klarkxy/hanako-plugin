@@ -182,6 +182,21 @@ function bumpPatch(version) {
   return `${parsed.major}.${parsed.minor}.${parsed.patch + 1}`;
 }
 
+function padNumber(value, width = 2) {
+  return String(value).padStart(width, "0");
+}
+
+function createReleaseTag(now = new Date()) {
+  const year = now.getUTCFullYear();
+  const month = padNumber(now.getUTCMonth() + 1);
+  const day = padNumber(now.getUTCDate());
+  const hour = padNumber(now.getUTCHours());
+  const minute = padNumber(now.getUTCMinutes());
+  const second = padNumber(now.getUTCSeconds());
+  const millisecond = padNumber(now.getUTCMilliseconds(), 3);
+  return `release-${year}${month}${day}-${hour}${minute}${second}-${millisecond}`;
+}
+
 function uniqueStrings(values) {
   return [...new Set((Array.isArray(values) ? values : []).map((item) => text(String(item))).filter(Boolean))];
 }
@@ -437,8 +452,7 @@ function selectEntryFile(pluginsDir, pluginId) {
   return candidates.find((filePath) => fsSync.existsSync(filePath)) || candidates[0];
 }
 
-function buildOfficialEntry(plugin, version, sha256, sharedLicense) {
-  const releaseTag = `${plugin.id}-v${version}`;
+function buildOfficialEntry(plugin, version, releaseTag, sha256, sharedLicense) {
   const githubRepo = sharedLicense.projectUrl;
 
   return {
@@ -603,14 +617,14 @@ async function createPackageArtifact(plugin, sharedLicense, dryRun) {
   }
 }
 
-async function writeOfficialPluginEntry(plugin, finalVersion, packageResult, sharedLicense, dryRun) {
+async function writeOfficialPluginEntry(plugin, finalVersion, releaseTag, packageResult, sharedLicense, dryRun) {
   const officialEntryPath = selectEntryFile(path.join(OH_PLUGINS_ROOT, "plugins"), plugin.id);
-  const officialEntry = buildOfficialEntry(plugin, finalVersion, packageResult.sha256, sharedLicense);
+  const officialEntry = buildOfficialEntry(plugin, finalVersion, releaseTag, packageResult.sha256, sharedLicense);
   await writeJson(officialEntryPath, officialEntry, dryRun);
   await updateOfficialMarketplace([officialEntry], dryRun);
   return {
     officialEntryPath,
-    releaseTag: `${plugin.id}-v${finalVersion}`,
+    releaseTag,
   };
 }
 
@@ -747,7 +761,7 @@ async function appendChangelog(runLines, dryRun) {
   const body = current
     .replace(/^#\s*更新日志\s*\n+/i, "")
     .trimStart();
-  const next = `# 更新日志\n\n${runText}${body ? `\n${body}` : ""}`;
+  const next = `# 更新日志\n\n${runText}${body ? `\n\n${body}` : ""}`;
 
   if (!dryRun) {
     await fs.writeFile(changelogPath, next, "utf8");
@@ -772,7 +786,7 @@ async function main() {
   const openHanakoUrls = resolveOpenHanakoBaseUrls();
   const changelogLines = [];
   const workspacePublishPaths = new Set();
-  const publishedTags = [];
+  const publishedReleaseTag = options.mode === "generate" ? createReleaseTag() : null;
   const changelogPath = path.join(WORKSPACE_ROOT, "CHANGELOG.md");
 
   console.log(`发现 ${plugins.length} 个插件，开始同步。`);
@@ -828,6 +842,18 @@ async function main() {
 
     const packageArtifact = await createPackageArtifact(plugin, sharedLicense, options.dryRun);
     try {
+      if (options.mode === "generate" && !options.skipOfficial && publishedReleaseTag) {
+        const officialResult = await writeOfficialPluginEntry(
+          plugin,
+          finalVersion,
+          publishedReleaseTag,
+          packageArtifact.packageResult,
+          sharedLicense,
+          options.dryRun,
+        );
+        console.log(`- [${plugin.id}] 已更新官方条目：${officialResult.officialEntryPath}`);
+      }
+
       if (!options.skipLocalMarketplace) {
         for (const homePath of localHomes) {
           const marketplacePath = await updateLocalMarketplace(homePath, [plugin], options.dryRun, sharedLicense);
@@ -861,11 +887,8 @@ async function main() {
         }
       }
 
-      const releaseTag = `${plugin.id}-v${finalVersion}`;
       if (options.mode === "generate") {
-        publishedTags.push(releaseTag);
         console.log(`- [${plugin.id}] 已完成生成包：${packageArtifact.packageResult.file}`);
-        console.log(`- [${plugin.id}] 版本标签：${releaseTag}`);
       } else {
         console.log(`- [${plugin.id}] 已完成测试打包：${packageArtifact.packageResult.file}`);
       }
@@ -886,6 +909,9 @@ async function main() {
   if (changelogLines.length > 0) {
     await appendChangelog(changelogLines, options.dryRun);
     console.log(`已记录中文更新日志：${changelogPath}`);
+    if (options.mode === "generate" && publishedReleaseTag) {
+      console.log(`本次仓库 Release 标签：${publishedReleaseTag}`);
+    }
     if (!options.dryRun) {
       workspacePublishPaths.add(path.relative(WORKSPACE_ROOT, changelogPath));
     }
@@ -896,7 +922,7 @@ async function main() {
     const workspacePublishResult = await publishGitChanges({
       repoRoot: WORKSPACE_ROOT,
       paths: [...workspacePublishPaths],
-      releaseTags: publishedTags,
+      releaseTags: options.mode === "generate" && changelogLines.length > 0 && publishedReleaseTag ? [publishedReleaseTag] : [],
       commitMessage: `chore(release): ${pluginIdsText}`,
       remote: "origin",
       push: true,

@@ -3,11 +3,11 @@ name: Publish Release
 on:
   push:
     tags:
-      - "*-v*"
+      - "release-*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish, for example agent-fission-v1.0.1"
+        description: "Release tag to publish, for example release-20260519-120000-000"
         required: true
         type: string
 
@@ -46,24 +46,12 @@ jobs:
             exit 1
           fi
 
-          if [[ "$TAG" =~ ^(.+)-v([0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?)$ ]]; then
-            PLUGIN_ID="${BASH_REMATCH[1]}"
-            VERSION="${BASH_REMATCH[2]}"
-          else
-            echo "Release tag must look like <plugin-id>-v<semver>." >&2
-            exit 1
-          fi
-
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "plugin_id=$PLUGIN_ID" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "release_dir=dist/releases/${PLUGIN_ID}/$TAG" >> "$GITHUB_OUTPUT"
-          echo "asset_name=${PLUGIN_ID}.zip" >> "$GITHUB_OUTPUT"
+          echo "release_dir=dist/releases/$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build release package
         run: |
           node scripts/release.mjs \
-            --plugin "${{ steps.meta.outputs.plugin_id }}" \
             --tag "${{ steps.meta.outputs.tag }}" \
             --out-dir "${{ steps.meta.outputs.release_dir }}"
 
@@ -71,7 +59,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          shopt -s nullglob
+          assets=("${{ steps.meta.outputs.release_dir }}"/*.zip)
+
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            echo "No plugin archives were generated." >&2
+            exit 1
+          fi
+
           gh release create "${{ steps.meta.outputs.tag }}" \
-            "${{ steps.meta.outputs.release_dir }}/${{ steps.meta.outputs.asset_name }}" \
+            "${assets[@]}" \
             --title "${{ steps.meta.outputs.tag }}" \
             --notes-file "${{ steps.meta.outputs.release_dir }}/${{ steps.meta.outputs.tag }}.notes.md"

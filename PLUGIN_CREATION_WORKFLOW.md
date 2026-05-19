@@ -23,8 +23,8 @@
 - `homepage`、`repository` 和 `readmeUrl` 统一从 `STAT-LICENSE` 里的 `Project Url` 生成，README 指向每个插件自己的 README。
 - 如果本机 OpenHanako 正在运行，测试和生成都会尝试把源码推到 dev 安装槽。
 - `CHANGELOG.md` 只保留“日期 + 插件 + 动作”一行一条的中文记录，最新的动作永远排在最前面。
-- GitHub Release 走 tag 驱动：推 `<plugin-id>-vX.Y.Z` 这种 tag 后，`.github/workflows/release.yml` 会自动打包对应插件的 zip 并创建 Release。
-- `scripts/package-generate.cmd` 现在会顺手提交生成结果、打 tag，并推送当前仓库和 OH-Plugins 仓库；如果你只想本地预览，继续用 `scripts/package-test.cmd`。
+- GitHub Release 走仓库级 tag 驱动：推 `release-YYYYMMDD-HHMMSS-mmm` 这种 tag 后，`.github/workflows/release.yml` 会自动把仓库里的全部插件分别打包成 zip，并创建一个 Release。
+- `scripts/package-generate.cmd` 现在会顺手提交生成结果、打一个仓库级 release tag，并推送当前仓库；如果你只想本地预览，继续用 `scripts/package-test.cmd`。
 
 ## 1. 先看哪些插件最值得参考
 
@@ -558,13 +558,13 @@ versions:
       minAppVersion: 0.170.0
     distribution:
       kind: release
-      packageUrl: https://github.com/klarkxy/hanako-plugin/releases/download/my-plugin-v1.0.0/my-plugin.zip
+      packageUrl: https://github.com/klarkxy/hanako-plugin/releases/download/release-20260519-120000-000/my-plugin.zip
       sha256: ...
 ```
 
 在此之前，不必折腾市场元数据。
 
-GitHub Release 的默认路径是：直接执行 `scripts/package-generate.cmd`。它会完成版本递增、OH-Plugins 条目更新、生成提交、tag 和 push；随后 `.github/workflows/release.yml` 会从对应的插件目录重新打包 release zip、生成 sha256，并把 changelog 顶部对应条目写进 release notes。
+GitHub Release 的默认路径是：直接执行 `scripts/package-generate.cmd`。它会完成版本递增、生成提交、仓库级 release tag 和 push；随后 `.github/workflows/release.yml` 会把仓库里的全部插件重新打包成独立 zip、生成 sha256，并从 `CHANGELOG.md` 提取本轮变更写进 release notes。
 
 ---
 
