@@ -3,7 +3,7 @@ name: local-provider
 description: 当用户想在 Hanako 中使用 LM Studio，或使用可配置的本地图片、视频、语音和音频运行时时使用。
 ---
 
-# local-provider
+# 本地提供方
 
 当用户想要使用本地优先的提供方流程，而不是托管 API 厂商时，使用此技能。
 
