@@ -78,11 +78,33 @@ function assert(condition, message) {
   if (!condition) throw new Error(`ASSERT FAILED: ${message}`);
 }
 
+function jsonResponse(body, init = {}) {
+  const text = typeof body === "string" ? body : JSON.stringify(body);
+  return new Response(text, {
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+}
+
+async function withMockFetch(mockImpl, fn) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockImpl;
+  try {
+    return await fn();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
 /* ── test cases ──────────────────────────────────────────────── */
 
 async function testToolExports() {
   console.log("\n[test] Tool module exports …");
   const mod = await import(TOOL_URL);
+  const syncMod = await import(pathToFileURL(path.join(PLUGIN_DIR, "tools", "sync-agent-skills.js")).href);
   assert(typeof mod.name === "string", "tool exports name");
   assert(typeof mod.description === "string", "tool exports description");
   assert(typeof mod.parameters === "object" && mod.parameters !== null, "tool exports parameters");
@@ -90,9 +112,16 @@ async function testToolExports() {
   assert(mod.parameters.required.includes("name"), "name is required");
   assert(mod.parameters.required.includes("identity"), "identity is required");
   assert(mod.parameters.required.includes("ishiki"), "ishiki is required");
+  assert(mod.parameters.properties.enabledSkills, "split-agent exposes enabledSkills");
+  assert(typeof syncMod.name === "string", "skill sync tool exports name");
+  assert(typeof syncMod.description === "string", "skill sync tool exports description");
+  assert(Array.isArray(syncMod.parameters.required), "skill sync parameters.required is an array");
+  assert(syncMod.parameters.required.includes("skillName"), "skill sync requires skillName");
+  assert(syncMod.parameters.properties.mode, "skill sync exposes preview/apply mode");
   assert(typeof mod.execute === "function", "tool exports execute function");
   console.log("  ✓ name, description, parameters, execute all present");
-  console.log("  ✓ required params: name, identity, ishiki");
+  console.log("  ✓ split-agent now exposes enabledSkills");
+  console.log("  ✓ skill sync tool exports preview/apply controls");
 }
 
 async function testFullCreationFlow(primaryAgentId) {
@@ -180,6 +209,141 @@ async function testFullCreationFlow(primaryAgentId) {
   } else {
     console.log(`  ∎ KEPT:${createdAgentId}`);
   }
+}
+
+async function testInitialSkillAssignment(primaryAgentId) {
+  console.log("\n[test] Initial skill assignment on split_agent …");
+
+  const mod = await import(TOOL_URL);
+  const requests = [];
+  const mockAgents = [
+    { id: primaryAgentId, name: "Primary", isPrimary: true },
+  ];
+  const newAgentSkills = [
+    { name: "core-default", enabled: true },
+    { name: "shared-skill", enabled: false },
+  ];
+
+  await withMockFetch(async (url, options = {}) => {
+    const parsedUrl = new URL(String(url));
+    const method = String(options.method || "GET").toUpperCase();
+    requests.push({ pathname: parsedUrl.pathname, search: parsedUrl.search, method, body: options.body || null });
+
+    if (parsedUrl.pathname === "/api/agents" && method === "GET") {
+      return jsonResponse({ agents: mockAgents });
+    }
+    if (parsedUrl.pathname === "/api/agents" && method === "POST") {
+      const payload = JSON.parse(String(options.body || "{}"));
+      return jsonResponse({ id: "agent-new", name: payload.name || "Agent New" });
+    }
+    if (parsedUrl.pathname === "/api/agents/agent-new/identity" && method === "PUT") {
+      return jsonResponse({ ok: true });
+    }
+    if (parsedUrl.pathname === "/api/agents/agent-new/ishiki" && method === "PUT") {
+      return jsonResponse({ ok: true });
+    }
+    if (parsedUrl.pathname === "/api/skills" && parsedUrl.searchParams.get("agentId") === "agent-new" && method === "GET") {
+      return jsonResponse({ skills: newAgentSkills });
+    }
+    if (parsedUrl.pathname === "/api/agents/agent-new/skills" && method === "PUT") {
+      const payload = JSON.parse(String(options.body || "{}"));
+      return jsonResponse({ ok: true, enabled: payload.enabled || [] });
+    }
+
+    throw new Error(`Unexpected request in initial skill assignment test: ${method} ${parsedUrl.pathname}${parsedUrl.search}`);
+  }, async () => {
+    const result = await mod.execute(
+      {
+        name: "Skillful Agent",
+        identity: "# Skillful Agent\nA helper that keeps a light skill set.",
+        ishiki: "- Keep skills practical\n- Do not overclaim",
+        enabledSkills: ["shared-skill", "missing-skill"],
+      },
+      { agentId: primaryAgentId, dataDir },
+    );
+
+    assert(result?.details?.createdAgent?.requestedEnabledSkills?.includes("shared-skill"), "requested skill recorded");
+    assert(result?.details?.createdAgent?.initialEnabledSkills?.includes("shared-skill"), "shared skill added to new agent");
+    assert(result?.content?.[0]?.text?.includes("Initial skills enabled: shared-skill"), "success text mentions initial skill addition");
+    assert(result?.content?.[0]?.text?.includes("Skipped skills that were not visible to the new agent: missing-skill"), "success text mentions skipped skills");
+
+    const skillPut = requests.find((request) => request.pathname === "/api/agents/agent-new/skills" && request.method === "PUT");
+    assert(skillPut, "skill update request was sent");
+    const skillBody = JSON.parse(String(skillPut.body || "{}"));
+    assert(skillBody.enabled.includes("core-default"), "existing enabled skill preserved");
+    assert(skillBody.enabled.includes("shared-skill"), "requested skill added");
+    assert(!skillBody.enabled.includes("missing-skill"), "missing skill not added");
+  });
+
+  console.log("  ✓ split-agent can append initial skills to a new agent");
+}
+
+async function testSkillDistributionTool(primaryAgentId) {
+  console.log("\n[test] Skill distribution tool preview/apply …");
+
+  const syncMod = await import(pathToFileURL(path.join(PLUGIN_DIR, "tools", "sync-agent-skills.js")).href);
+  const requests = [];
+  const mockAgents = [
+    { id: primaryAgentId, name: "Primary", isPrimary: true },
+    { id: "writer", name: "Writer", isPrimary: false },
+    { id: "helper", name: "Helper", isPrimary: false },
+  ];
+
+  const skillViews = new Map([
+    [primaryAgentId, [{ name: "shared-skill", enabled: false }, { name: "core-default", enabled: true }]],
+    ["writer", [{ name: "shared-skill", enabled: true }, { name: "core-default", enabled: true }]],
+    ["helper", [{ name: "core-default", enabled: true }]],
+  ]);
+
+  await withMockFetch(async (url, options = {}) => {
+    const parsedUrl = new URL(String(url));
+    const method = String(options.method || "GET").toUpperCase();
+    requests.push({ pathname: parsedUrl.pathname, search: parsedUrl.search, method, body: options.body || null });
+
+    if (parsedUrl.pathname === "/api/agents" && method === "GET") {
+      return jsonResponse({ agents: mockAgents });
+    }
+    if (parsedUrl.pathname === "/api/skills" && method === "GET") {
+      const agentId = parsedUrl.searchParams.get("agentId") || "";
+      return jsonResponse({ skills: skillViews.get(agentId) || [] });
+    }
+    if (parsedUrl.pathname === `/api/agents/${encodeURIComponent(primaryAgentId)}/skills` && method === "PUT") {
+      const payload = JSON.parse(String(options.body || "{}"));
+      return jsonResponse({ ok: true, enabled: payload.enabled || [] });
+    }
+    if (parsedUrl.pathname === "/api/agents/writer/skills" && method === "PUT") {
+      const payload = JSON.parse(String(options.body || "{}"));
+      return jsonResponse({ ok: true, enabled: payload.enabled || [] });
+    }
+    if (parsedUrl.pathname === "/api/agents/helper/skills" && method === "PUT") {
+      throw new Error("helper should not receive a PUT because the skill is not visible there");
+    }
+
+    throw new Error(`Unexpected request in skill distribution test: ${method} ${parsedUrl.pathname}${parsedUrl.search}`);
+  }, async () => {
+    const preview = await syncMod.execute(
+      { skillName: "shared-skill", mode: "preview" },
+      { agentId: primaryAgentId, dataDir },
+    );
+    assert(preview?.details?.summary?.canEnableCount === 1, "preview finds one agent that can receive the skill");
+    assert(preview?.details?.summary?.alreadyEnabledCount === 1, "preview finds one already-enabled agent");
+    assert(preview?.details?.summary?.notVisibleCount === 1, "preview finds one agent that cannot see the skill");
+
+    const apply = await syncMod.execute(
+      { skillName: "shared-skill", mode: "apply", agentIds: [primaryAgentId, "writer", "helper"] },
+      { agentId: primaryAgentId, dataDir },
+    );
+    assert(apply?.details?.summary?.appliedCount === 1, "apply enables the skill once");
+    assert(apply?.details?.summary?.alreadyEnabledCount === 1, "apply preserves already-enabled agents");
+    assert(apply?.details?.summary?.skippedCount === 1, "apply skips the agent that cannot see the skill");
+
+    const putRequests = requests.filter((request) => request.method === "PUT");
+    assert(putRequests.some((request) => request.pathname === `/api/agents/${encodeURIComponent(primaryAgentId)}/skills`), "primary agent update was sent");
+    assert(!putRequests.some((request) => request.pathname === "/api/agents/writer/skills"), "already-enabled agent was not rewritten");
+    assert(!putRequests.some((request) => request.pathname === "/api/agents/helper/skills"), "helper agent was not updated");
+  });
+
+  console.log("  ✓ skill distribution preview and apply paths work");
 }
 
 async function testReplaceMode(primaryAgentId) {
@@ -340,6 +504,8 @@ async function main() {
     await testPrimaryOnlyEnforcement();
     await testReplaceMode(primaryAgentId);
     await testFullCreationFlow(primaryAgentId);
+    await testInitialSkillAssignment(primaryAgentId);
+    await testSkillDistributionTool(primaryAgentId);
   } catch (error) {
     console.error(`\n✗ ${error.stack || error.message}`);
     process.exitCode = 1;

@@ -1,5 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  addEnabledSkillsToAgent,
+  normalizeStringList,
+} from "./lib/runtime.js";
 
 const VALID_YUAN = ["hanako", "butter", "ming", "kong"];
 const VALID_CONTENT_MODES = ["replace", "overlay"];
@@ -48,6 +52,11 @@ export const parameters = {
     avatarDataUrl: {
       type: "string",
       description: "Optional data URL for a png/jpg/webp avatar image. Useful when the caller already has the image bytes."
+    },
+    enabledSkills: {
+      type: "array",
+      items: { type: "string" },
+      description: "Optional initial skills to add to the new agent after creation. Existing enabled skills are preserved."
     }
   },
   required: ["name", "identity", "ishiki"]
@@ -62,6 +71,7 @@ export async function execute(input = {}, ctx = {}) {
   const contentMode = normalizeContentMode(input.contentMode);
   const avatarUrl = optionalString(input.avatarUrl);
   const avatarDataUrl = optionalString(input.avatarDataUrl);
+  const enabledSkills = normalizeStringList(input.enabledSkills);
   const requestedId = optionalString(input.id);
   const yuan = normalizeYuan(input.yuan);
   const server = readLocalServerInfo(resolveHanakoHome(ctx));
@@ -112,6 +122,10 @@ export async function execute(input = {}, ctx = {}) {
       });
     }
 
+    const skillResult = enabledSkills.length > 0
+      ? await addEnabledSkillsToAgent(server, createdAgentId, enabledSkills)
+      : null;
+
     const lines = [
       `Created persistent agent \"${created?.name || agentName}\" (${createdAgentId}).`,
       `Created by primary agent: ${currentAgentId}.`,
@@ -121,6 +135,12 @@ export async function execute(input = {}, ctx = {}) {
     if (yuan) lines.push(`Base yuan: ${yuan}.`);
     if (contentMode === "overlay") lines.push("Identity and ishiki were layered on top of Hanako's default templates.");
     if (avatarUrl || avatarDataUrl) lines.push("Avatar was written successfully.");
+    if (skillResult?.added?.length) {
+      lines.push(`Initial skills enabled: ${skillResult.added.join(", ")}.`);
+    }
+    if (skillResult?.skipped?.length) {
+      lines.push(`Skipped skills that were not visible to the new agent: ${skillResult.skipped.map((item) => item.name).join(", ")}.`);
+    }
 
     return {
       content: [{ type: "text", text: lines.join("\n") }],
@@ -130,6 +150,8 @@ export async function execute(input = {}, ctx = {}) {
           name: created?.name || agentName,
           createdBy: currentAgentId,
           contentMode,
+          ...(enabledSkills.length > 0 ? { requestedEnabledSkills: enabledSkills } : {}),
+          ...(skillResult?.nextEnabled?.length ? { initialEnabledSkills: skillResult.nextEnabled } : {}),
           ...(yuan ? { yuan } : {}),
           ...((avatarUrl || avatarDataUrl)
             ? { avatarSource: avatarUrl ? "avatarUrl" : "avatarDataUrl" }

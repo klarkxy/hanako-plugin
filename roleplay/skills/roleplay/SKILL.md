@@ -1,9 +1,9 @@
 ---
 name: roleplay
-description: Use when the user explicitly says “开启扮演模式”, “进入扮演模式”, “开始扮演”, or asks for tavern / 语C / immersive roleplay. Keep the conversation in-character, guide the scene forward, and continue the dialogue until the user says to stop.
+description: 当用户明确说“开启扮演模式”“进入扮演模式”“开始扮演”，或请求酒馆、语C、沉浸式扮演时使用。保持对话始终在角色内，推动场景向前发展，直到用户说停止为止。
 ---
 
-# roleplay · 深度扮演与续聊
+# 扮演模式 · 深度扮演与续聊
 
 这是一个对话模式，不是一次性写作任务。
 

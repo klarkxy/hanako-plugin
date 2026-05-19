@@ -10,6 +10,7 @@ It lets the primary agent create a Hanako agent that sticks around — not a one
 |------------|-------------|
 | 🆕 Agent creation | Creates a brand-new persistent Hanako agent via the local API |
 | 🧬 Identity & Ishiki | `overlay` mode preserves defaults + layers additions; `replace` mode full custom control; supports auto-filling from web search given a character name |
+| 🧩 Skill assignment | Add initial enabled skills when creating an agent, and decide whether a newly installed skill should be shared with every persistent agent |
 | 🌐 Public-ishiki | Optionally writes `public-ishiki.md` |
 | 🖼️ Avatar | Downloads from URL or accepts a Data URL |
 | 🚫 Permission guard | Refuses to run when the caller isn't the primary agent |
@@ -17,6 +18,7 @@ It lets the primary agent create a Hanako agent that sticks around — not a one
 Installed tool name:
 
 - `agent-fission_split_agent`
+- `agent-fission_sync_agent_skills`
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
@@ -29,6 +31,12 @@ Installed tool name:
 | `contentMode` | | `overlay` or `replace` (tool defaults to `replace`; pass explicitly when overlay is needed) |
 | `avatarUrl` | | HTTP(S) URL of the avatar image |
 | `avatarDataUrl` | | Data URL of the avatar (use when bytes are already in hand) |
+| `enabledSkills` | | Optional initial skills to add to the new agent; existing defaults stay enabled |
+
+Skill routing helper:
+
+- `agent-fission_sync_agent_skills` can preview the current agent set first, then enable a skill for the agents you choose.
+- Use it when a newly installed skill should be shared with every persistent agent, or when only a subset should receive it.
 
 Character auto-fill flow (name → full background):
 
@@ -45,6 +53,12 @@ Recommended calling pattern:
 - note the tool defaults to `replace` — pass `contentMode: "overlay"` explicitly when you need overlay
 - keep `identity` and `ishiki` focused on what makes this agent distinct — no length or style restrictions
 - fan-made characters, OC personas, and literary agents are all fair game — build the tone the user wants
+
+Skill-aware creation:
+
+- When a new agent needs known capabilities from day one, pass those skill names through `enabledSkills` so the new agent keeps its default skills and gains the extra ones.
+- When a skill has just been installed and might fit more than one persistent agent, preview the agent list first, then decide whether to enable it everywhere or only on matching agents.
+- Do not silently promote private learned skills into every agent; only distribute when the skill is truly shared or the user asked for it.
 
 Avatar workflow (priority order):
 

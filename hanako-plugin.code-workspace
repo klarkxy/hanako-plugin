@@ -11,6 +11,9 @@
 		{
 			"name": "openhanako",
 			"path": "../openhanako"
+		},
+		{
+			"path": "C:/Users/27837/.hanako-dev"
 		}
 	],
 	"settings": {}
