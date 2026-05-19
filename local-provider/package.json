@@ -1,0 +1,31 @@
+{
+  "name": "local-provider",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hanako plugin for LM Studio chat plus configurable local image, video, and speech runtimes.",
+  "license": "SATA-2.0",
+  "author": {
+    "name": "klarkxy"
+  },
+  "homepage": "https://github.com/klarkxy/hanako-plugin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/klarkxy/hanako-plugin.git"
+  },
+  "keywords": [
+    "hanako-plugin",
+    "local-provider",
+    "lm-studio",
+    "image",
+    "video",
+    "speech"
+  ],
+  "scripts": {
+    "test": "node tests/smoke.mjs",
+    "smoke": "node tests/smoke.mjs"
+  },
+  "engines": {
+    "hanako": ">=0.171.3"
+  }
+}

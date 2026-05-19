@@ -1,5 +1,6 @@
 # 更新日志
 
+- 2026-05-19 [local-provider] 新增 Local Provider 插件：默认接入 LM Studio 本地聊天 Provider，并提供图片、视频、语音的可配置本地运行时接口与语音工具。
 - 2026-05-18 [roleplay] 生成包完成，版本保持 1.0.0
 - 2026-05-18 [agent-fission] 测试包完成，版本保持 1.0.4
 - 2026-05-18 [roleplay] 测试包完成，版本保持 1.0.0

@@ -7,6 +7,7 @@ Each plugin gets its own cozy top-level folder in this repo.
 Current residents:
 
 - [agent-fission](agent-fission/README.md) — creates a persistent Hanako agent with its own identity, ishiki, and optional public-ishiki.
+- [local-provider](local-provider/README_EN.md) — connects LM Studio as a local chat provider and exposes configurable local runtimes for image, video, and speech.
 - [roleplay](roleplay/README_EN.md) — a conversation skill plugin for deep in-character roleplay with guided scene continuation, activated by prompts like "开启扮演模式".
 
 Repo-level references:
