@@ -7,8 +7,10 @@
 当前住户：
 
 - [agent-fission](agent-fission/README.md) —— 创建有独立身份、ishiki 和可选 public-ishiki 的真正持久化 Hanako agent。
-- [roleplay](roleplay/README.md)
-- [opencode-provider](opencode-provider/README.md) —— 接入 OpenCode Zen（按量付费全系列模型）和 OpenCode Go（订阅制精选开源模型）。 —— 在对话中用“开启扮演模式”进入深度扮演，并持续引导场景推进与续聊。
+- [roleplay](roleplay/README.md) —— 在对话中用"开启扮演模式"进入深度扮演，并持续引导场景推进与续聊。
+- [opencode-provider](opencode-provider/README.md) —— 接入 OpenCode Zen（按量付费全系列模型）和 OpenCode Go（订阅制精选开源模型）。
+- [token-stats](token-stats/README.md) —— 自动订阅 token_usage 事件，统计 LLM Token 日/周/月消耗与费用，提供按模型和时间范围查询。
+- [zhihu-search](zhihu-search/README.md) —— 集成知乎开放平台四个 API（知乎搜索、全网搜索、知乎直答、热榜），支持每日额度追踪与智能搜索源选择。
 
 仓库级参考：
 

@@ -1,5 +1,7 @@
 # 更新日志
 
+- 2026-05-20 [zhihu-search] 新增 zhihu-search 插件：集成知乎开放平台四个 API（知乎搜索、全网搜索、知乎直答、热榜），支持每日额度追踪与智能搜索源选择
+
 - 2026-05-20 [token-stats] 生成包完成，版本保持 1.0.0
 
 - 2026-05-20 [token-stats] 新增 token-stats 插件：自动订阅 token_usage 事件，统计 LLM Token 日/周/月消耗与费用，提供 query_token_usage 和 reset_token_stats 工具
