@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "local-provider",
   "name": "Local Provider",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Connect LM Studio as a local chat provider and expose configurable local media runtimes for image, video, and speech.",
   "author": {
     "name": "klarkxy"
