@@ -2,6 +2,7 @@
 
 - 2026-05-20 [agent-fission] 生成包完成，版本保持 1.0.6
 - 2026-05-20 [roleplay] 生成包完成，版本从 1.0.0 自动递增到 1.0.1
+- 2026-05-20 [opencode-provider] 新增 OpenCode Zen 和 OpenCode Go 两个 provider 声明插件
 
 - 2026-05-19 [agent-fission] 生成包完成，版本从 1.0.4 自动递增到 1.0.5
 
