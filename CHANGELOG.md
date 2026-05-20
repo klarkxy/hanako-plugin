@@ -1,5 +1,7 @@
 # 更新日志
 
+- 2026-05-20 [token-stats] 生成包完成，版本保持 1.0.0
+
 - 2026-05-20 [token-stats] 新增 token-stats 插件：自动订阅 token_usage 事件，统计 LLM Token 日/周/月消耗与费用，提供 query_token_usage 和 reset_token_stats 工具
 
 - 2026-05-20 [opencode-provider] 生成包完成，版本保持 0.1.0
