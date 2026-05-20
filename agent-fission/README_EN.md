@@ -49,9 +49,11 @@ When the user provides a complete description, respect their text and call the t
 
 Recommended calling pattern:
 
-- `contentMode=overlay` for light add-ons; `contentMode=replace` for full OC personas or characters with rich lore — "concise" is an overlay guideline, not a general restriction
-- note the tool defaults to `replace` — pass `contentMode: "overlay"` explicitly when you need overlay
-- keep `identity` and `ishiki` focused on what makes this agent distinct — no length or style restrictions
+- Default for new characters: use `contentMode=replace`, and choose the best-fit `yuan` from `hanako` / `butter` / `ming` / `kong` first
+- Rewrite section-by-section from the selected yuan defaults; do not append a full persona draft to the end of old prompts
+- Use `overlay` only for small patches (a few incremental constraints on top of an existing template)
+- note the tool defaults to `replace` — pass `contentMode: "overlay"` only when you explicitly want patch-style layering
+- keep `identity` and `ishiki` focused on what makes this agent distinct while removing semantic duplicates
 - fan-made characters, OC personas, and literary agents are all fair game — build the tone the user wants
 
 Skill-aware creation:
@@ -81,4 +83,5 @@ More notes:
 - The new agent is a normal standalone Hanako agent.
 - It can later have its own sessions, memory, files, and tasks.
 - This plugin **does not** create runtime-only subagents.
-- `contentMode=overlay` reads Hanako defaults + layers additions; `contentMode=replace` writes from scratch — ideal for full OC personas.
+- For new personas, pick a `yuan` first and then rewrite the defaults with `contentMode=replace`.
+- `contentMode=overlay` is best treated as patch-only mode, not full persona composition.

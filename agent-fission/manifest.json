@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "agent-fission",
   "name": "Agent Fission",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Let the primary agent create a persistent standalone Hanako agent with its own identity, ishiki, optional avatar, and skill-aware setup. The new agent lives on after the conversation ends — not a temporary subagent.",
   "author": {
     "name": "klarkxy"

@@ -16,5 +16,9 @@
 			"path": "C:/Users/27837/.hanako-dev"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"githubPullRequests.ignoredPullRequestBranches": [
+			"main"
+		]
+	}
 }
