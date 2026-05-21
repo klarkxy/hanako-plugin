@@ -10,12 +10,6 @@ import assert from "node:assert/strict";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_ROOT = path.resolve(SCRIPT_DIR, "..");
 const OH_PLUGINS_ROOT = resolveOhPluginsRoot();
-const DEFAULT_OPENHANAKO_URLS = [
-  "http://127.0.0.1:3210",
-  "http://localhost:3210",
-  "http://127.0.0.1:3211",
-  "http://localhost:3211",
-];
 const EXCLUDED_DIRS = new Set([".git", "node_modules"]);
 
 function text(value) {
@@ -110,22 +104,6 @@ function resolveOpenHanakoHomes() {
   }
 
   return homes;
-}
-
-function resolveOpenHanakoBaseUrls() {
-  const urls = [];
-  const add = (value) => {
-    const resolved = text(value);
-    if (resolved && !urls.includes(resolved)) urls.push(resolved);
-  };
-
-  add(process.env.OPENHANAKO_BASE_URL);
-  add(process.env.HANA_SERVER_URL);
-  if (urls.length === 0) {
-    for (const url of DEFAULT_OPENHANAKO_URLS) add(url);
-  }
-
-  return urls;
 }
 
 function stripGitSuffix(value) {
@@ -699,58 +677,6 @@ async function installToPluginsDir(homePath, plugin, dryRun) {
   }
 }
 
-function readServerInfo(homePath) {
-  const infoPath = path.join(homePath, "server-info.json");
-  try {
-    const raw = fsSync.readFileSync(infoPath, "utf8");
-    const parsed = JSON.parse(raw);
-    const port = Number(parsed?.port);
-    const token = typeof parsed?.token === "string" ? parsed.token.trim() : "";
-    if (Number.isInteger(port) && port > 0 && token) {
-      return { port, token, baseUrl: `http://127.0.0.1:${port}` };
-    }
-  } catch {}
-  return null;
-}
-
-async function installToOpenHanako(baseUrl, homePath, plugin, dryRun) {
-  const sourcePath = path.join(homePath, "plugin-dev-sources", plugin.id);
-  if (dryRun) {
-    return { ok: true, skipped: true, sourcePath, baseUrl };
-  }
-
-  // 优先从 server-info.json 拿 token
-  const serverInfo = readServerInfo(homePath);
-  const headers = { "content-type": "application/json" };
-  if (serverInfo) {
-    headers["Authorization"] = `Bearer ${serverInfo.token}`;
-    // 用 server-info.json 的端口覆盖默认 URL
-    baseUrl = serverInfo.baseUrl;
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5000);
-  try {
-    const res = await fetch(new URL("/api/plugins/dev/install", baseUrl), {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        sourcePath,
-        pluginId: plugin.id,
-        allowFullAccess: plugin.trust === "full-access",
-      }),
-      signal: controller.signal,
-    });
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(payload?.error || `HTTP ${res.status}`);
-    }
-    return payload;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function appendChangelog(runLines, dryRun) {
   const changelogPath = path.join(WORKSPACE_ROOT, "CHANGELOG.md");
   if (!(await exists(changelogPath))) return;
@@ -783,7 +709,6 @@ async function main() {
   }
 
   const localHomes = resolveOpenHanakoHomes();
-  const openHanakoUrls = resolveOpenHanakoBaseUrls();
   const changelogLines = [];
   const workspacePublishPaths = new Set();
   const publishedReleaseTag = options.mode === "generate" ? createReleaseTag() : null;
@@ -805,8 +730,6 @@ async function main() {
       console.log(`- [${plugin.id}] 工作区没有新的修改，且版本未领先官方，跳过。`);
       continue;
     }
-
-    const fallbackHomePath = localHomes[0];
 
     let finalVersion = plugin.version;
     let versionChanged = false;
@@ -862,27 +785,12 @@ async function main() {
       }
 
       if (!options.skipOpenHanako) {
-        let syncedToOpenHanako = false;
         for (const homePath of localHomes) {
-          for (const baseUrl of openHanakoUrls) {
-            const mirrorPath = path.join(homePath, "plugin-dev-sources", plugin.id);
-            const installPayload = await installToOpenHanako(baseUrl, homePath, plugin, options.dryRun).catch((error) => ({ ok: false, error: error.message }));
-            if (installPayload?.ok) {
-              console.log(`- [${plugin.id}] 已同步到本机 OpenHanako：${installPayload.devRunId ? `devRunId=${installPayload.devRunId}` : mirrorPath}`);
-              syncedToOpenHanako = true;
-              break;
-            }
-          }
-          if (syncedToOpenHanako) break;
-        }
-        if (!syncedToOpenHanako) {
-          // API 安装失败，文件级兜底：直接复制到 plugins 目录
-          const fallbackResult = await installToPluginsDir(fallbackHomePath, plugin, options.dryRun);
-          if (fallbackResult.ok) {
-            console.log(`- [${plugin.id}] 已通过文件复制安装到本机 OpenHanako：${fallbackResult.targetDir}`);
-            syncedToOpenHanako = true;
+          const installResult = await installToPluginsDir(homePath, plugin, options.dryRun);
+          if (installResult.ok) {
+            console.log(`- [${plugin.id}] 已复制到本机 OpenHanako：${installResult.targetDir}`);
           } else {
-            console.log(`- [${plugin.id}] 本机 OpenHanako 未连接，文件复制也失败：${fallbackResult.error}`);
+            console.log(`- [${plugin.id}] 复制到本机 OpenHanako 失败：${installResult.error}`);
           }
         }
       }

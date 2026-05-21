@@ -150,10 +150,34 @@ export async function callZhihuApi(endpoint, params, dataDir) {
 
   const text = await response.text();
   let payload;
-  try {
-    payload = JSON.parse(text);
-  } catch {
-    throw new Error(`API 返回非 JSON 响应 (HTTP ${response.status})：${text.slice(0, 200)}`);
+
+  // 处理 SSE 格式（zhida 接口返回 data: {...} 流）
+  if (text.startsWith("data: ")) {
+    // 取第一个完整事件
+    const lines = text.split("\n").filter(l => l.startsWith("data: "));
+    for (const line of lines) {
+      const jsonStr = line.slice(6).trim();
+      if (!jsonStr) continue;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        // 取最后一个非空 Data 的事件
+        if (parsed.Data && parsed.Data.state !== undefined) continue; // 跳过 init 事件
+        payload = parsed;
+      } catch { /* 跳过无法解析的 SSE 行 */ }
+    }
+    if (!payload) {
+      // 如果只有 init 事件，尝试取第一个
+      const first = lines[0];
+      if (first) {
+        try { payload = JSON.parse(first.slice(6).trim()); } catch {}
+      }
+    }
+  } else {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      throw new Error(`API 返回非 JSON 响应 (HTTP ${response.status})：${text.slice(0, 200)}`);
+    }
   }
 
   // 知乎 API 错误处理

@@ -10,6 +10,7 @@
   "license": "SATA-2.0",
   "minAppVersion": "0.158.0",
   "trust": "full-access",
+  "activationEvents": ["*"],
   "homepage": "https://github.com/klarkxy/hanako-plugin",
   "repository": {
     "type": "git",
@@ -26,8 +27,5 @@
     "llm",
     "cost",
     "consumption"
-  ],
-  "activationEvents": [
-    "*"
   ]
 }
