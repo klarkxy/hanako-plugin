@@ -23,13 +23,13 @@ export async function execute(input, ctx) {
     const result = await callZhihuApi("hot_list", { Limit: limit }, ctx.dataDir);
 
     // 格式化结果
-    const data = result.Data || [];
-    if (!Array.isArray(data) || data.length === 0) {
+    const items = (result.Data && result.Data.Items) || [];
+    if (!Array.isArray(items) || items.length === 0) {
       return "🔥 热榜暂无数据。";
     }
 
     const lines = ["🔥 **知乎热榜**\n"];
-    data.forEach((item, index) => {
+    items.forEach((item, index) => {
       const title = item.Title || item.title || "无标题";
       const url = item.Url || item.url || "";
       const hotScore = item.HotScore ?? item.hotScore ?? item.Heat ?? item.heat ?? null;

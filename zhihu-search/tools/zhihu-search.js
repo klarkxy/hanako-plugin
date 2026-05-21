@@ -44,13 +44,13 @@ export async function execute(input, ctx) {
     const result = await callZhihuApi("zhihu_search", { Query: query, Limit: limit }, ctx.dataDir);
 
     // 格式化结果
-    const data = result.Data || [];
-    if (!Array.isArray(data) || data.length === 0) {
+    const items = (result.Data && result.Data.Items) || [];
+    if (!Array.isArray(items) || items.length === 0) {
       return `🔍 知乎搜索「${query}」未找到相关结果。`;
     }
 
     const lines = [`🔍 知乎搜索「${query}」结果：\n`];
-    data.forEach((item, index) => {
+    items.forEach((item, index) => {
       const title = item.Title || item.title || "无标题";
       const url = item.Url || item.url || "";
       const summary = item.Summary || item.summary || item.Content || item.content || "";
