@@ -1,6 +1,6 @@
 {
   "name": "zhihu-search",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "description": "知乎开放平台 API 集成插件",
